@@ -2,91 +2,119 @@
 #include <vector>
 #include <cassert>
 
-class Matrix {
+class Tensor {
 private:
-	int rows;
-	int cols;
-	std::vector<double> data;
+    std::vector<int> shape;
+    std::vector<double> data;
 
 public:
-	// constructor
-	Matrix(int rows, int cols)
-		: rows(rows), cols(cols), data(rows * cols, 0.0) {}
+    // Constructor
+    Tensor(const std::vector<int>& shape)
+        : shape(shape)
+    {
+        int size = 1;
 
-	double& operator()(int row, int col){
-		return data[row * cols + col];
-	}
+        for (int dimension : shape) {
+            size *= dimension;
+        }
 
-	double operator()(int row, int col) const {
-		return data[row * cols + col];
-	}
+        data.resize(size, 0.0);
+    }
 
-	int getRows() const {
-		return rows;
-	}
+    // Number of dimensions
+    int ndim() const {
+        return shape.size();
+    }
 
-	int getCols() const {
-		return cols;
-	}
+    // Get shape
+    const std::vector<int>& getShape() const {
+        return shape;
+    }
 
-	void print()  const {
-		for (int i = 0; i < rows;  i++){
-			for (int j = 0; j < cols;  j++){
-				std::cout << (*this)(i , j ) << " ";
-			}
-			std::cout <<'\n';
-		}
-	}
+    // Total number of elements
+    int size() const {
+        return data.size();
+    }
+
+    // 1D indexing
+    double& operator()(int i) {
+        assert(ndim() == 1);
+
+        return data[i];
+    }
+
+    // 2D indexing
+    double& operator()(int i, int j) {
+        assert(ndim() == 2);
+
+        int cols = shape[1];
+
+        return data[i * cols + j];
+    }
+
+    // 3D indexing
+    double& operator()(int i, int j, int k) {
+        assert(ndim() == 3);
+
+        int dim1 = shape[1];
+        int dim2 = shape[2];
+
+        return data[i * dim1 * dim2
+                  + j * dim2
+                  + k];
+    }
+
+    // Print shape
+    void printShape() const {
+        std::cout << "(";
+
+        for (int i = 0; i < shape.size(); i++) {
+            std::cout << shape[i];
+
+            if (i != shape.size() - 1)
+                std::cout << ", ";
+        }
+
+        std::cout << ")\n";
+    }
+
+    // Print data
+    void print() const {
+        for (double value : data) {
+            std::cout << value << " ";
+        }
+
+        std::cout << "\n";
+    }
 };
-
-
-Matrix matmul(const Matrix& A,  const Matrix& B) {
-
-	assert(A.getCols() == B.getRows());
-
-	Matrix result(A.getRows(),  B.getCols());
-
-	for (int i = 0; i < A.getRows(); i++) {
-		for (int j = 0; j < B.getCols(); j++) {
-			for (int k = 0; k < A.getCols(); k++){
-				result(i, j) += A(i, k) * B(k, j);
-			}
-		}
-	}
-
-	return result;
-}
-
 
 
 int main() {
 
-    Matrix A(2, 3);
-    Matrix B(3, 2);
+    Tensor x({2, 3, 4});
 
-    A(0, 0) = 1;
-    A(0, 1) = 2;
-    A(0, 2) = 3;
+    std::cout << "Dimensions: "
+              << x.ndim() << "\n";
 
-    A(1, 0) = 4;
-    A(1, 1) = 5;
-    A(1, 2) = 6;
+    std::cout << "Shape: ";
+    x.printShape();
 
-
-    B(0, 0) = 7;
-    B(0, 1) = 8;
-
-    B(1, 0) = 9;
-    B(1, 1) = 10;
-
-    B(2, 0) = 11;
-    B(2, 1) = 12;
+    std::cout << "Elements: "
+              << x.size() << "\n";
 
 
-    Matrix C = matmul(A, B);
+    // Put some values inside
 
-    C.print();
+    x(0, 0, 0) = 10;
+    x(0, 0, 1) = 20;
+    x(1, 2, 3) = 99;
 
+
+    std::cout << "\nValues:\n";
+
+    std::cout << x(0, 0, 0) << "\n";
+    std::cout << x(0, 0, 1) << "\n";
+    std::cout << x(1, 2, 3) << "\n";
+	
     return 0;
 }
-
