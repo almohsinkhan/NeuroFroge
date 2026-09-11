@@ -38,6 +38,16 @@ public:
         return shape;
     }
 
+    double& flat(int index) {
+        assert(index >= 0 && index < data.size());
+        return data[index];
+    }
+
+    double flat(int index) const {
+        assert(index >= 0 && index < data.size());
+        return data[index];
+    }
+
     // Generic N-dimensional indexing
     double& operator()(const std::vector<int>& indices) {
 
@@ -112,52 +122,65 @@ Tensor matmul(const Tensor& A, const Tensor& B) {
 }
 
 
+Tensor add(const Tensor& A, const Tensor& B) {
+
+    assert(A.getShape() == B.getShape());
+
+    Tensor C(A.getShape());
+
+    for (int i = 0; i < A.size(); i++) {
+        C.flat(i) = A.flat(i) + B.flat(i);
+    }
+
+    return C;
+}
+
+
+Tensor multiply(const Tensor& A, const Tensor& B) {
+
+    assert(A.getShape() == B.getShape());
+
+    Tensor C(A.getShape());
+
+    for (int i = 0; i < A.size(); i++) {
+        C.flat(i) = A.flat(i) * B.flat(i);
+    }
+
+    return C;
+}
+
 int main() {
 
-    // 4-dimensional tensor
-    Tensor x({2, 3, 4, 5});
+    // test addition of two 2D tensors
+    Tensor A({2, 2});
+    Tensor B({2, 2});
 
-    std::cout << "Shape: ";
-    x.printShape();
+    A({0, 0}) = 1;
+    A({0, 1}) = 2;
+    A({1, 0}) = 3;
+    A({1, 1}) = 4;
 
-    std::cout << "Dimensions: "
-              << x.ndim() << "\n";
+    B({0, 0}) = 10;
+    B({0, 1}) = 20;
+    B({1, 0}) = 30;
+    B({1, 1}) = 40;
 
-    std::cout << "Total elements: "
-              << x.size() << "\n";
+    Tensor C = add(A, B);
+    Tensor D = multiply(A, B);
 
-
-    // Access an element
-    x({1, 2, 3, 4}) = 99;
-
-    std::cout << "Value: "
-              << x({1, 2, 3, 4})
-              << "\n";
-
-
-    // test matrix multiplication
-    Tensor A({2, 3});
-    Tensor B({3, 4});
-
-    // Initialize A
-    A({0, 0}) = 1; A({0, 1}) = 2; A({0, 2}) = 3;
-    A({1, 0}) = 4; A({1, 1}) = 5; A({1, 2}) = 6;
-
-    // Initialize B
-    B({0, 0}) = 7;  B({0, 1}) = 8;  B({0, 2}) = 9;  B({0, 3}) = 10;
-    B({1, 0}) = 11; B({1, 1}) = 12; B({1, 2}) = 13; B({1, 3}) = 14;
-    B({2, 0}) = 15; B({2, 1}) = 16; B({2, 2}) = 17; B({2, 3}) = 18;
-
-    Tensor C = matmul(A, B);    
-
-    std::cout << "Result of A * B:\n";
-    for (int i = 0; i < C.getShape()[0]; i++) {
-        for (int j = 0; j < C.getShape()[1]; j++) {
+    std::cout << "Addition:\n";
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2; j++) {
             std::cout << C({i, j}) << " ";
         }
         std::cout << "\n";
     }
 
-
-    return 0;
+    std::cout << "Element-wise multiplication:\n";
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            std::cout << D({i, j}) << " ";
+        }
+        std::cout << "\n";
+    }
 }
