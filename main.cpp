@@ -56,6 +56,21 @@ public:
         return data[index];
     }
 
+    double operator()(const std::vector<int>& indices) const {
+    assert(indices.size() == shape.size());
+
+    int index = 0;
+
+    for (int i = 0; i < shape.size(); i++) {
+        assert(indices[i] >= 0);
+        assert(indices[i] < shape[i]);
+
+        index += indices[i] * strides[i];
+    }
+
+    return data[index];
+    }
+
     void printShape() const {
 
         std::cout << "(";
@@ -71,6 +86,30 @@ public:
         std::cout << ")\n";
     }
 };
+
+// for now we are only implementing 2D matrix multiplication
+Tensor matmul(const Tensor& A, const Tensor& B) {
+    assert(A.ndim() == 2 && B.ndim() == 2);
+    assert(A.getShape()[1] == B.getShape()[0]);
+
+    int m = A.getShape()[0];
+    int n = A.getShape()[1];
+    int p = B.getShape()[1];
+
+    Tensor C({m, p});
+
+    for (int i = 0; i < m; i++) {
+        for (int j = 0; j < p; j++) {
+            double sum = 0.0;
+            for (int k = 0; k < n; k++) {
+                sum += A({i, k}) * B({k, j});
+            }
+            C({i, j}) = sum;
+        }
+    }
+
+    return C;
+}
 
 
 int main() {
@@ -94,6 +133,31 @@ int main() {
     std::cout << "Value: "
               << x({1, 2, 3, 4})
               << "\n";
+
+
+    // test matrix multiplication
+    Tensor A({2, 3});
+    Tensor B({3, 4});
+
+    // Initialize A
+    A({0, 0}) = 1; A({0, 1}) = 2; A({0, 2}) = 3;
+    A({1, 0}) = 4; A({1, 1}) = 5; A({1, 2}) = 6;
+
+    // Initialize B
+    B({0, 0}) = 7;  B({0, 1}) = 8;  B({0, 2}) = 9;  B({0, 3}) = 10;
+    B({1, 0}) = 11; B({1, 1}) = 12; B({1, 2}) = 13; B({1, 3}) = 14;
+    B({2, 0}) = 15; B({2, 1}) = 16; B({2, 2}) = 17; B({2, 3}) = 18;
+
+    Tensor C = matmul(A, B);    
+
+    std::cout << "Result of A * B:\n";
+    for (int i = 0; i < C.getShape()[0]; i++) {
+        for (int j = 0; j < C.getShape()[1]; j++) {
+            std::cout << C({i, j}) << " ";
+        }
+        std::cout << "\n";
+    }
+
 
     return 0;
 }
