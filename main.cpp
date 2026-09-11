@@ -149,6 +149,61 @@ Tensor multiply(const Tensor& A, const Tensor& B) {
     return C;
 }
 
+
+// subtract two tensors
+Tensor subtract(const Tensor& A, const Tensor& B) {
+    assert(A.getShape() == B.getShape());
+
+    Tensor C(A.getShape());
+
+    for (int i = 0; i < A.size(); i++) {
+        C.flat(i) = A.flat(i) - B.flat(i);
+    }
+
+    return C;
+}
+
+// scale a tensor by a scalar
+Tensor scale(const Tensor& A, double scalar) {
+    Tensor C(A.getShape());
+
+    for (int i = 0; i < A.size(); i++) {
+        C.flat(i) = A.flat(i) * scalar;
+    }
+
+    return C;
+}
+
+// sum all elements of a tensor
+Tensor sum(const Tensor& A) {
+    double total = 0.0;
+
+    for (int i = 0; i < A.size(); i++) {
+        total += A.flat(i);
+    }
+
+    Tensor C({1});
+    C.flat(0) = total;
+
+    return C;
+}
+
+// mean elements of a tensor
+Tensor mean(const Tensor& A) {
+    double total = 0.0;
+
+    for (int i = 0; i < A.size(); i++) {
+        total += A.flat(i);
+    }
+
+    Tensor C({1});
+    C.flat(0) = total / A.size();
+
+    return C;
+}
+
+
+
 int main() {
 
     // test addition of two 2D tensors
