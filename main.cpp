@@ -1,6 +1,8 @@
 #include <iostream>
 #include <vector>
 #include <cassert>
+#include <algorithm>
+#include <cmath>
 
 class Tensor {
 private:
@@ -202,39 +204,57 @@ Tensor mean(const Tensor& A) {
     return C;
 }
 
+// implement activation functions: relu, sigmoid, tanh
+Tensor relu(const Tensor& A) {
+    Tensor C(A.getShape());
+
+    for (int i = 0; i < A.size(); i++) {
+        C.flat(i) = std::max(0.0, A.flat(i));
+    }
+
+    return C;
+}
+
+Tensor sigmoid(const Tensor& A) {
+    Tensor C(A.getShape());
+
+    for (int i = 0; i < A.size(); i++) {
+        C.flat(i) = 1.0 / (1.0 + std::exp(-A.flat(i)));
+    }
+
+    return C;
+}
+
+// create a custom activation function: tanh
+
+Tensor tanh(const Tensor& A) {
+    Tensor C(A.getShape());
+
+    for (int i = 0; i < A.size(); i++) {
+        C.flat(i) = std::tanh(A.flat(i));
+    }
+
+    return C;
+}
 
 
 int main() {
 
-    // test addition of two 2D tensors
-    Tensor A({2, 2});
-    Tensor B({2, 2});
+    Tensor A({2, 3});
 
-    A({0, 0}) = 1;
-    A({0, 1}) = 2;
-    A({1, 0}) = 3;
-    A({1, 1}) = 4;
+    A({0, 0}) = -2;
+    A({0, 1}) = 3;
+    A({0, 2}) = -1;
 
-    B({0, 0}) = 10;
-    B({0, 1}) = 20;
-    B({1, 0}) = 30;
-    B({1, 1}) = 40;
+    A({1, 0}) = 5;
+    A({1, 1}) = -4;
+    A({1, 2}) = 2;
 
-    Tensor C = add(A, B);
-    Tensor D = multiply(A, B);
+    Tensor B = tanh(A);
 
-    std::cout << "Addition:\n";
     for (int i = 0; i < 2; i++) {
-        for (int j = 0; j < 2; j++) {
-            std::cout << C({i, j}) << " ";
-        }
-        std::cout << "\n";
-    }
-
-    std::cout << "Element-wise multiplication:\n";
-    for (int i = 0; i < 2; i++) {
-        for (int j = 0; j < 2; j++) {
-            std::cout << D({i, j}) << " ";
+        for (int j = 0; j < 3; j++) {
+            std::cout << B({i, j}) << " ";
         }
         std::cout << "\n";
     }
