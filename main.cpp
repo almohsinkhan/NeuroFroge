@@ -261,6 +261,8 @@ class Linear {
         }
 
         Tensor forward(const Tensor& input) {
+            assert(input.ndim() == 2);
+            assert(input.getShape()[0] == weight.getShape()[1]);
 
             // multiply input with weight
             Tensor output = matmul(weight, input);
@@ -272,6 +274,27 @@ class Linear {
             return output;
         }
 };
+
+// binary cross entropy loss function
+double binary_cross_entropy(const Tensor& predictions, const Tensor& targets) {
+    // ensure predictions and targets have the same shape
+    assert(predictions.getShape() == targets.getShape());
+
+    // initialize loss to 0
+    double loss = 0.0;
+
+    for (int i = 0; i < predictions.size(); i++) {
+        double p = predictions.flat(i);
+        double y = targets.flat(i);
+
+        // ensure predictions are in the range (0, 1)
+        assert(p > 0.0 && p < 1.0);
+
+        // compute binary cross entropy loss
+        loss += - (y * std::log(p) + (1 - y) * std::log(1 - p));
+    }
+    return loss / predictions.size();
+}
 
 int main() {
 
@@ -305,6 +328,18 @@ int main() {
         std::cout << output.flat(i) << " ";
     }
     std::cout << "\n";
+
+
+    // test binary cross entropy loss function
+    Tensor prediction({1, 1});
+    prediction({0, 0}) = 0.9;
+
+    Tensor target({1, 1});
+    target({0, 0}) = 1.0;
+
+    double loss = binary_cross_entropy(prediction, target);
+
+    std::cout << "Loss: " << loss << "\n";
 
     return 0;
 }
