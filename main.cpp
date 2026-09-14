@@ -3,6 +3,7 @@
 #include <cassert>
 #include <algorithm>
 #include <cmath>
+#include <random>
 
 class Tensor {
 private:
@@ -225,7 +226,6 @@ Tensor sigmoid(const Tensor& A) {
     return C;
 }
 
-// create a custom activation function: tanh
 
 Tensor tanh(const Tensor& A) {
     Tensor C(A.getShape());
@@ -237,25 +237,74 @@ Tensor tanh(const Tensor& A) {
     return C;
 }
 
+class Linear {
+    private:
+        Tensor weight;
+        Tensor bias;
+
+    public:
+        Linear(int in_features, int out_features) 
+            :weight({out_features, in_features}),
+            bias({out_features})
+        {
+            std::random_device rd;
+            std::mt19937 gen(rd());
+
+            std::normal_distribution<> d(0.0, 0.1);
+
+            for (int i = 0; i < weight.size(); i++) {
+                weight.flat(i) = d(gen);
+            }
+            for (int i = 0; i < bias.size(); i++) {
+                bias.flat(i) = 0.0;
+            }
+        }
+
+        Tensor forward(const Tensor& input) {
+
+            // multiply input with weight
+            Tensor output = matmul(weight, input);
+
+            // add bias
+            for (int i = 0; i < output.size(); i++) {
+                output({i, 0}) += bias({i});
+            }
+            return output;
+        }
+};
 
 int main() {
 
-    Tensor A({2, 3});
+    // Create Linear layer: 2 inputs -> 3 outputs
+    Linear layer(2, 3);
 
-    A({0, 0}) = -2;
-    A({0, 1}) = 3;
-    A({0, 2}) = -1;
+    // Create input: [2, 1]
+    Tensor input({2, 1});
+    input({0, 0}) = 1.0;
+    input({1, 0}) = 2.0;
 
-    A({1, 0}) = 5;
-    A({1, 1}) = -4;
-    A({1, 2}) = 2;
+    // Print input
+    std::cout << "Input shape: ";
+    input.printShape();
 
-    Tensor B = tanh(A);
-
-    for (int i = 0; i < 2; i++) {
-        for (int j = 0; j < 3; j++) {
-            std::cout << B({i, j}) << " ";
-        }
-        std::cout << "\n";
+    std::cout << "Input values: ";
+    for (int i = 0; i < input.size(); i++) {
+        std::cout << input.flat(i) << " ";
     }
+    std::cout << "\n\n";
+
+    // Forward pass
+    Tensor output = layer.forward(input);
+
+    // Print output
+    std::cout << "Output shape: ";
+    output.printShape();
+
+    std::cout << "Output values: ";
+    for (int i = 0; i < output.size(); i++) {
+        std::cout << output.flat(i) << " ";
+    }
+    std::cout << "\n";
+
+    return 0;
 }
