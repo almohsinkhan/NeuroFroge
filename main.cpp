@@ -237,6 +237,24 @@ Tensor tanh(const Tensor& A) {
     return C;
 }
 
+Tensor transpose(const Tensor& A) {
+    assert(A.ndim() == 2);
+
+    int rows = A.getShape()[0];
+    int cols = A.getShape()[1];
+
+    Tensor result({cols, rows});
+
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            result({j, i}) = A({i, j});
+        }
+    }
+
+    return result;
+}
+
+
 class Linear {
     private:
         Tensor weight;
@@ -344,6 +362,8 @@ Tensor binary_cross_entropy_backward(const Tensor& predictions, const Tensor& ta
 
     return grad;
 }
+
+
 
 int main() {
 
