@@ -259,11 +259,16 @@ class Linear {
     private:
         Tensor weight;
         Tensor bias;
+        
+        Tensor grad_weight;
+        Tensor grad_bias;
 
     public:
         Linear(int in_features, int out_features) 
             :weight({out_features, in_features}),
-            bias({out_features})
+            bias({out_features}),
+            grad_weight({out_features, in_features}),
+            grad_bias({out_features})
         {
             std::random_device rd;
             std::mt19937 gen(rd());
@@ -290,6 +295,51 @@ class Linear {
                 output({i, 0}) += bias({i});
             }
             return output;
+        }
+
+        Tensor backward(const Tensor& input, const Tensor& dZ) {
+            // dW = dZ × X^T
+            Tensor input_T = transpose(input);
+            grad_weight = matmul(dZ, input_T);
+
+            // db = dZ
+            for (int i = 0; i < bias.size(); i++) {
+                grad_bias.flat(i) = dZ.flat(i);
+            }
+
+            // dX = W^T × dZ
+            Tensor weight_T = transpose(weight);
+            Tensor dX = matmul(weight_T, dZ);
+
+            return dX;
+       }
+
+       void update(double learning_rate) {
+            // W = W - learning_rate * dW
+            for (int i = 0; i < weight.size(); i++) {
+                weight.flat(i) -= learning_rate * grad_weight.flat(i);
+            }
+
+            // b = b - learning_rate * db
+            for (int i = 0; i < bias.size(); i++) {
+                bias.flat(i) -= learning_rate * grad_bias.flat(i);
+            }
+        }
+
+        Tensor& getWeight() {
+            return weight;
+        }
+
+        Tensor& getBias() {
+            return bias;
+        }
+
+        Tensor& getGradWeight() {
+            return grad_weight;
+        }
+
+        Tensor& getGradBias() {
+            return grad_bias;
         }
 };
 
