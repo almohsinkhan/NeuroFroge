@@ -18,3 +18,8 @@ I have implemented a Tensor class for now, which is good enough to start impleme
 * Implement activation functions
 
 There is still a long way to go.
+
+
+## backpropagation
+** for BCE + sigmoid together
+![alt text](<Screenshot From 2026-09-15 15-56-14.png>)

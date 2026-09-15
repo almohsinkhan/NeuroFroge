@@ -296,6 +296,55 @@ double binary_cross_entropy(const Tensor& predictions, const Tensor& targets) {
     return loss / predictions.size();
 }
 
+// relu derivative
+Tensor relu_derivative(const Tensor& A) {
+    Tensor C(A.getShape());
+
+    for (int i = 0; i < A.size(); i++) {
+        C.flat(i) = A.flat(i) > 0.0 ? 1.0 : 0.0;
+    }
+
+    return C;
+}
+
+// sigmoid derivative
+Tensor sigmoid_derivative(const Tensor& A) {
+    Tensor C(A.getShape());
+
+    for (int i = 0; i < A.size(); i++) {
+        double s = 1.0 / (1.0 + std::exp(-A.flat(i)));
+        C.flat(i) = s * (1 - s);
+    }
+
+    return C;
+}
+
+// tanh derivative
+Tensor tanh_derivative(const Tensor& A) {
+    Tensor C(A.getShape());
+
+    for (int i = 0; i < A.size(); i++) {
+        double t = std::tanh(A.flat(i));
+        C.flat(i) = 1 - t * t;
+    }
+
+    return C;
+}
+
+//binary cross entropy backward function
+Tensor binary_cross_entropy_backward(const Tensor& predictions, const Tensor& targets) {
+    assert(predictions.getShape() == targets.getShape());
+
+    Tensor grad(predictions.getShape());
+
+    // Compute the gradient of the binary cross entropy loss with respect to the predictions
+    for (int i = 0; i < predictions.size(); i++){
+        grad.flat(i) = predictions.flat(i) - targets.flat(i);
+    }
+
+    return grad;
+}
+
 int main() {
 
     // Create Linear layer: 2 inputs -> 3 outputs
