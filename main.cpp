@@ -417,48 +417,174 @@ Tensor binary_cross_entropy_backward(const Tensor& predictions, const Tensor& ta
 
 int main() {
 
-    // Create Linear layer: 2 inputs -> 3 outputs
-    Linear layer(2, 3);
+    // Create Neural Network
 
-    // Create input: [2, 1]
-    Tensor input({2, 1});
-    input({0, 0}) = 1.0;
-    input({1, 0}) = 2.0;
+    Linear layer1(2, 3);
+    Linear layer2(3, 1);
 
-    // Print input
-    std::cout << "Input shape: ";
-    input.printShape();
 
-    std::cout << "Input values: ";
-    for (int i = 0; i < input.size(); i++) {
-        std::cout << input.flat(i) << " ";
+    // XOR Dataset
+
+    double inputs[4][2] = {
+        {0, 0},
+        {0, 1},
+        {1, 0},
+        {1, 1}
+    };
+
+    double targets[4] = {
+        0, 1, 1, 0
+    };
+
+
+    // Training Settings
+
+    double learning_rate = 0.1;
+    int epochs = 10000;
+
+
+    // Training Loop
+
+    for (int epoch = 0; epoch < epochs; epoch++) {
+
+        double total_loss = 0.0;
+
+        for (int sample = 0; sample < 4; sample++) {
+
+            // Create Input Tensor
+
+            Tensor input({2, 1});
+
+            input({0, 0}) = inputs[sample][0];
+            input({1, 0}) = inputs[sample][1];
+
+
+            // Create Target Tensor
+
+            Tensor target({1, 1});
+
+            target({0, 0}) = targets[sample];
+
+
+            // FORWARD PASS
+
+            // Layer 1
+            Tensor z1 = layer1.forward(input);
+
+            // Activation
+            Tensor hidden = tanh(z1);
+
+            // Layer 2
+            Tensor z2 = layer2.forward(hidden);
+
+            // Sigmoid
+            Tensor prediction = sigmoid(z2);
+
+
+            // LOSS
+
+            double loss =
+                binary_cross_entropy(prediction, target);
+
+            total_loss += loss;
+
+
+            // BACKWARD PASS
+
+            // BCE + Sigmoid gradient
+            Tensor dZ2 =
+                binary_cross_entropy_backward(
+                    prediction,
+                    target
+                );
+
+
+            // Layer 2 backward
+            Tensor dHidden =
+                layer2.backward(
+                    hidden,
+                    dZ2
+                );
+
+
+            // Tanh derivative
+            Tensor tanh_grad =
+                tanh_derivative(z1);
+
+
+            // Chain rule through Tanh
+            Tensor dZ1 =
+                multiply(
+                    dHidden,
+                    tanh_grad
+                );
+
+
+            // Layer 1 backward
+            Tensor dInput =
+                layer1.backward(
+                    input,
+                    dZ1
+                );
+
+
+            // UPDATE PARAMETERS
+
+            layer1.update(learning_rate);
+            layer2.update(learning_rate);
+        }
+
+
+        // Print Loss
+
+        if (epoch % 1000 == 0) {
+
+            std::cout
+                << "Epoch: "
+                << epoch
+                << " | Loss: "
+                << total_loss / 4
+                << "\n";
+        }
     }
-    std::cout << "\n\n";
 
-    // Forward pass
-    Tensor output = layer.forward(input);
 
-    // Print output
-    std::cout << "Output shape: ";
-    output.printShape();
+    // Test Network
 
-    std::cout << "Output values: ";
-    for (int i = 0; i < output.size(); i++) {
-        std::cout << output.flat(i) << " ";
+    std::cout << "\nXOR Predictions:\n";
+
+    for (int sample = 0; sample < 4; sample++) {
+
+        Tensor input({2, 1});
+
+        input({0, 0}) = inputs[sample][0];
+        input({1, 0}) = inputs[sample][1];
+
+
+        // Forward pass
+
+        Tensor z1 =
+            layer1.forward(input);
+
+        Tensor hidden =
+            tanh(z1);
+
+        Tensor z2 =
+            layer2.forward(hidden);
+
+        Tensor prediction =
+            sigmoid(z2);
+
+
+        std::cout
+            << inputs[sample][0]
+            << " XOR "
+            << inputs[sample][1]
+            << " = "
+            << prediction.flat(0)
+            << "\n";
     }
-    std::cout << "\n";
 
-
-    // test binary cross entropy loss function
-    Tensor prediction({1, 1});
-    prediction({0, 0}) = 0.9;
-
-    Tensor target({1, 1});
-    target({0, 0}) = 1.0;
-
-    double loss = binary_cross_entropy(prediction, target);
-
-    std::cout << "Loss: " << loss << "\n";
 
     return 0;
 }
