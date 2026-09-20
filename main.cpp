@@ -414,17 +414,13 @@ Tensor binary_cross_entropy_backward(const Tensor& predictions, const Tensor& ta
 }
 
 
-
 int main() {
 
-    // Create Neural Network
-
+    // create linear layers 
     Linear layer1(2, 3);
     Linear layer2(3, 1);
 
-
-    // XOR Dataset
-
+    // XOR inputs and targets 
     double inputs[4][2] = {
         {0, 0},
         {0, 1},
@@ -436,155 +432,80 @@ int main() {
         0, 1, 1, 0
     };
 
-
-    // Training Settings
-
+    // training parameters
     double learning_rate = 0.1;
     int epochs = 10000;
 
-
-    // Training Loop
-
+    // training loop
     for (int epoch = 0; epoch < epochs; epoch++) {
 
         double total_loss = 0.0;
 
+        // loop over each sample in the dataset
         for (int sample = 0; sample < 4; sample++) {
 
-            // Create Input Tensor
-
             Tensor input({2, 1});
-
             input({0, 0}) = inputs[sample][0];
             input({1, 0}) = inputs[sample][1];
 
-
-            // Create Target Tensor
-
             Tensor target({1, 1});
-
             target({0, 0}) = targets[sample];
 
-
-            // FORWARD PASS
-
-            // Layer 1
             Tensor z1 = layer1.forward(input);
-
-            // Activation
-            Tensor hidden = tanh(z1);
-
-            // Layer 2
+            Tensor hidden = relu(z1);
             Tensor z2 = layer2.forward(hidden);
-
-            // Sigmoid
             Tensor prediction = sigmoid(z2);
 
-
-            // LOSS
-
-            double loss =
-                binary_cross_entropy(prediction, target);
-
+            double loss = binary_cross_entropy(prediction, target);
             total_loss += loss;
 
-
-            // BACKWARD PASS
-
-            // BCE + Sigmoid gradient
             Tensor dZ2 =
-                binary_cross_entropy_backward(
-                    prediction,
-                    target
-                );
+                binary_cross_entropy_backward(prediction, target);
 
-
-            // Layer 2 backward
             Tensor dHidden =
-                layer2.backward(
-                    hidden,
-                    dZ2
-                );
+                layer2.backward(hidden, dZ2);
 
+            Tensor relu_grad =
+                relu_derivative(z1);
 
-            // Tanh derivative
-            Tensor tanh_grad =
-                tanh_derivative(z1);
-
-
-            // Chain rule through Tanh
             Tensor dZ1 =
-                multiply(
-                    dHidden,
-                    tanh_grad
-                );
+                multiply(dHidden, relu_grad);
 
-
-            // Layer 1 backward
             Tensor dInput =
-                layer1.backward(
-                    input,
-                    dZ1
-                );
-
-
-            // UPDATE PARAMETERS
+                layer1.backward(input, dZ1);
 
             layer1.update(learning_rate);
             layer2.update(learning_rate);
         }
 
-
-        // Print Loss
-
         if (epoch % 1000 == 0) {
-
-            std::cout
-                << "Epoch: "
-                << epoch
-                << " | Loss: "
-                << total_loss / 4
-                << "\n";
+            std::cout << "Epoch " << epoch
+                      << " Loss: "
+                      << total_loss / 4
+                      << "\n";
         }
     }
 
-
-    // Test Network
-
-    std::cout << "\nXOR Predictions:\n";
+    std::cout << "\nXOR Predictions\n";
 
     for (int sample = 0; sample < 4; sample++) {
 
         Tensor input({2, 1});
-
         input({0, 0}) = inputs[sample][0];
         input({1, 0}) = inputs[sample][1];
 
+        Tensor z1 = layer1.forward(input);
+        Tensor hidden = relu(z1);
+        Tensor z2 = layer2.forward(hidden);
+        Tensor prediction = sigmoid(z2);
 
-        // Forward pass
-
-        Tensor z1 =
-            layer1.forward(input);
-
-        Tensor hidden =
-            tanh(z1);
-
-        Tensor z2 =
-            layer2.forward(hidden);
-
-        Tensor prediction =
-            sigmoid(z2);
-
-
-        std::cout
-            << inputs[sample][0]
-            << " XOR "
-            << inputs[sample][1]
-            << " = "
-            << prediction.flat(0)
-            << "\n";
+        std::cout << inputs[sample][0]
+                  << " XOR "
+                  << inputs[sample][1]
+                  << " = "
+                  << prediction.flat(0)
+                  << "\n";
     }
-
 
     return 0;
 }
