@@ -254,6 +254,79 @@ Tensor transpose(const Tensor& A) {
     return result;
 }
 
+// wait initialize the weights and biases 
+// Xavier/Glorot Initialization 
+/*initialization weight by drawing from a normal distribution 
+with mean 0 and specific variance*/
+
+Tensor xavier_initialization(int in_features, int out_features) {
+    Tensor weight({out_features, in_features});
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    double variance = 2.0 / (in_features + out_features);
+    double stddev = std::sqrt(variance);
+
+    std::normal_distribution<> d(0.0, stddev);
+
+    for (int i = 0; i < weight.size(); i++) {
+        weight.flat(i) = d(gen);
+    }
+
+    return weight;
+}
+
+// He Normal initialization
+Tensor he_initialization(int in_features, int out_features) {
+    Tensor weight({out_features, in_features});
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    double variance = 2.0 / in_features;
+    double stddev = std::sqrt(variance);
+
+    std::normal_distribution<> d(0.0, stddev);
+
+    for (int i = 0; i < weight.size(); i++) {
+        weight.flat(i) = d(gen);
+    }
+
+    return weight;
+}
+
+Tensor zeros(int out_features) {
+    Tensor bias({out_features});
+
+    for (int i = 0; i < bias.size(); i++) {
+        bias.flat(i) = 0.0;
+    }
+
+    return bias;
+}
+
+// init weight with random normal distribution with mean 0 and stddev 0.1
+Tensor random_normal_initialization(int in_features, int out_features) {
+    Tensor weight({out_features, in_features});
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    std::normal_distribution<> d(0.0, 0.1);
+
+    for (int i = 0; i < weight.size(); i++) {
+        weight.flat(i) = d(gen);
+    }
+
+    return weight;
+}
+
+enum class InitMethod {
+    RANDOM_NORMAL,
+    XAVIER,
+    HE
+};
 
 class Linear {
     private:
@@ -264,23 +337,24 @@ class Linear {
         Tensor grad_bias;
 
     public:
-        Linear(int in_features, int out_features) 
+        Linear(int in_features, int out_features, const InitMethod init_method = InitMethod::RANDOM_NORMAL) 
             :weight({out_features, in_features}),
             bias({out_features}),
             grad_weight({out_features, in_features}),
             grad_bias({out_features})
         {
-            std::random_device rd;
-            std::mt19937 gen(rd());
 
-            std::normal_distribution<> d(0.0, 0.1);
+            if (init_method == InitMethod::XAVIER) {
+                weight = xavier_initialization(in_features, out_features);
+            } else if (init_method == InitMethod::HE) {
+                weight = he_initialization(in_features, out_features);
+            } else if (init_method == InitMethod::RANDOM_NORMAL) {
+                weight = random_normal_initialization(in_features, out_features);
+            } else {
+                throw std::invalid_argument("Invalid initialization method");
+            }
 
-            for (int i = 0; i < weight.size(); i++) {
-                weight.flat(i) = d(gen);
-            }
-            for (int i = 0; i < bias.size(); i++) {
-                bias.flat(i) = 0.0;
-            }
+            bias = zeros(out_features);
         }
 
         Tensor forward(const Tensor& input) {
@@ -417,8 +491,8 @@ Tensor binary_cross_entropy_backward(const Tensor& predictions, const Tensor& ta
 int main() {
 
     // create linear layers 
-    Linear layer1(2, 3);
-    Linear layer2(3, 1);
+    Linear layer1(2, 3, InitMethod::HE);
+    Linear layer2(3, 1, InitMethod::HE);
 
     // XOR inputs and targets 
     double inputs[4][2] = {
