@@ -372,33 +372,47 @@ class Linear {
         }
 
         Tensor backward(const Tensor& input, const Tensor& dZ) {
-            // dW = dZ × X^T
-            Tensor input_T = transpose(input);
-            grad_weight = matmul(dZ, input_T);
 
-            // db = dZ
-            for (int i = 0; i < bias.size(); i++) {
-                grad_bias.flat(i) = dZ.flat(i);
+            Tensor input_T = transpose(input);
+            Tensor current_grad_weight = matmul(dZ, input_T);
+
+            for (int i = 0; i < grad_weight.size(); i++) {
+                grad_weight.flat(i) += current_grad_weight.flat(i);
             }
 
-            // dX = W^T × dZ
+            for (int i = 0; i < bias.size(); i++) {
+                grad_bias.flat(i) += dZ.flat(i);
+            }
+
             Tensor weight_T = transpose(weight);
             Tensor dX = matmul(weight_T, dZ);
 
             return dX;
-       }
+        }
 
-       void update(double learning_rate) {
-            // W = W - learning_rate * dW
+        void update(double learning_rate, int batch_size) {
+
             for (int i = 0; i < weight.size(); i++) {
-                weight.flat(i) -= learning_rate * grad_weight.flat(i);
+                weight.flat(i) -=
+                    learning_rate * grad_weight.flat(i) / batch_size;
             }
 
-            // b = b - learning_rate * db
             for (int i = 0; i < bias.size(); i++) {
-                bias.flat(i) -= learning_rate * grad_bias.flat(i);
+                bias.flat(i) -=
+                    learning_rate * grad_bias.flat(i) / batch_size;
             }
         }
+
+        // zero out the gradients after each update
+        void zero_grad() {
+            for (int i = 0; i < grad_weight.size(); i++) {
+                grad_weight.flat(i) = 0.0;
+            }
+            for (int i = 0; i < grad_bias.size(); i++) {
+                grad_bias.flat(i) = 0.0;
+            }
+        }
+
 
         Tensor& getWeight() {
             return weight;
@@ -491,8 +505,8 @@ Tensor binary_cross_entropy_backward(const Tensor& predictions, const Tensor& ta
 int main() {
 
     // create linear layers 
-    Linear layer1(2, 3, InitMethod::HE);
-    Linear layer2(3, 1, InitMethod::HE);
+    Linear layer1(2, 3, InitMethod::XAVIER);
+    Linear layer2(3, 1, InitMethod::XAVIER);
 
     // XOR inputs and targets 
     double inputs[4][2] = {
@@ -514,6 +528,10 @@ int main() {
     for (int epoch = 0; epoch < epochs; epoch++) {
 
         double total_loss = 0.0;
+
+        // reset gradients
+        layer1.zero_grad();
+        layer2.zero_grad();
 
         // loop over each sample in the dataset
         for (int sample = 0; sample < 4; sample++) {
@@ -539,6 +557,7 @@ int main() {
             Tensor dHidden =
                 layer2.backward(hidden, dZ2);
 
+    
             Tensor relu_grad =
                 relu_derivative(z1);
 
@@ -548,10 +567,11 @@ int main() {
             Tensor dInput =
                 layer1.backward(input, dZ1);
 
-            layer1.update(learning_rate);
-            layer2.update(learning_rate);
         }
 
+        layer1.update(learning_rate, 4);
+        layer2.update(learning_rate, 4);
+        
         if (epoch % 1000 == 0) {
             std::cout << "Epoch " << epoch
                       << " Loss: "
