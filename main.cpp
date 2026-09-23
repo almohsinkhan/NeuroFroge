@@ -1,109 +1,38 @@
 #include <iostream>
-
+#include "dataset.h"
 #include "linear.h"
-#include "activation.h"
-#include "loss.h"
-#include "tensor_ops.h"
-
 
 int main() {
 
-    // create linear layers 
-    Linear layer1(2, 3, InitMethod::XAVIER);
-    Linear layer2(3, 1, InitMethod::XAVIER);
+    Dataset dataset(
+        "data/images.csv",
+        "data/labels.csv"
+    );
 
-    // XOR inputs and targets 
-    double inputs[4][2] = {
-        {0, 0},
-        {0, 1},
-        {1, 0},
-        {1, 1}
-    };
+    std::cout << "Dataset size: "
+              << dataset.size() << "\n";
 
-    double targets[4] = {
-        0, 1, 1, 0
-    };
+    // Get one image
+    Tensor x = dataset.getImage(0);
+    int label = dataset.getLabel(0);
 
-    // training parameters
-    double learning_rate = 0.1;
-    int epochs = 10000;
+    std::cout << "Image shape: ";
+    x.printShape();
 
-    // training loop
-    for (int epoch = 0; epoch < epochs; epoch++) {
+    std::cout << "True label: "
+              << label << "\n";
 
-        double total_loss = 0.0;
 
-        // reset gradients
-        layer1.zero_grad();
-        layer2.zero_grad();
+    // Neural network
+    Linear layer1(784, 128);
+    Linear layer2(128, 10);
 
-        // loop over each sample in the dataset
-        for (int sample = 0; sample < 4; sample++) {
+    // Forward pass
+    Tensor hidden = layer1.forward(x);
+    Tensor output = layer2.forward(hidden);
 
-            Tensor input({2, 1});
-            input({0, 0}) = inputs[sample][0];
-            input({1, 0}) = inputs[sample][1];
-
-            Tensor target({1, 1});
-            target({0, 0}) = targets[sample];
-
-            Tensor z1 = layer1.forward(input);
-            Tensor hidden = relu(z1);
-            Tensor z2 = layer2.forward(hidden);
-            Tensor prediction = sigmoid(z2);
-
-            double loss = binary_cross_entropy(prediction, target);
-            total_loss += loss;
-
-            Tensor dZ2 =
-                binary_cross_entropy_backward(prediction, target);
-
-            Tensor dHidden =
-                layer2.backward(hidden, dZ2);
-
-    
-            Tensor relu_grad =
-                relu_derivative(z1);
-
-            Tensor dZ1 =
-                multiply(dHidden, relu_grad);
-
-            Tensor dInput =
-                layer1.backward(input, dZ1);
-
-        }
-
-        layer1.update(learning_rate, 4);
-        layer2.update(learning_rate, 4);
-        
-        if (epoch % 1000 == 0) {
-            std::cout << "Epoch " << epoch
-                      << " Loss: "
-                      << total_loss / 4
-                      << "\n";
-        }
-    }
-
-    std::cout << "\nXOR Predictions\n";
-
-    for (int sample = 0; sample < 4; sample++) {
-
-        Tensor input({2, 1});
-        input({0, 0}) = inputs[sample][0];
-        input({1, 0}) = inputs[sample][1];
-
-        Tensor z1 = layer1.forward(input);
-        Tensor hidden = relu(z1);
-        Tensor z2 = layer2.forward(hidden);
-        Tensor prediction = sigmoid(z2);
-
-        std::cout << inputs[sample][0]
-                  << " XOR "
-                  << inputs[sample][1]
-                  << " = "
-                  << prediction.flat(0)
-                  << "\n";
-    }
+    std::cout << "Output shape: ";
+    output.printShape();
 
     return 0;
 }

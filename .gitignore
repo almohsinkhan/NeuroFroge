@@ -6,3 +6,8 @@ neurofroge
 build/
 .vscode/
 .idea/
+*.pyc
+venv/
+
+data/*.csv
+neural_net
