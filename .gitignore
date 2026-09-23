@@ -1,13 +1,19 @@
+# Build
 neural_net
-.vscode/
-
-*.o
 neurofroge
 build/
+*.o
+
+# IDE
 .vscode/
 .idea/
+
+# Python
 *.pyc
 venv/
+__pycache__/
+.ipynb_checkpoints/
 
+# Dataset
+data/FashionMNIST/
 data/*.csv
-neural_net
