@@ -1,2 +1,8 @@
 neural_net
 .vscode/
+
+*.o
+neurofroge
+build/
+.vscode/
+.idea/
