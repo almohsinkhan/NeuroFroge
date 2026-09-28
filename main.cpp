@@ -1,18 +1,43 @@
 #include <iostream>
+#include <algorithm>
 
 #include "dataset.h"
 #include "linear.h"
 #include "activation.h"
 #include "softmax.h"
 #include "cross_entropy.h"
+#include "sequential.h"
+
+// Adapter to use your existing ReLU function as a Module
+class ReLU : public Module {
+public:
+    Tensor forward(const Tensor& input) override {
+        return relu(input);
+    }
+
+    Tensor backward(
+        const Tensor& input,
+        const Tensor& grad_output
+    ) override {
+        Tensor grad = relu_derivative(input);
+
+        for (int i = 0; i < grad.size(); i++) {
+            grad.flat(i) *= grad_output.flat(i);
+        }
+
+        return grad;
+    }
+
+    void zero_grad() override {}
+
+    void update(double learning_rate, int batch_size) override {}
+};
 
 int argmax(const Tensor& output) {
-
     int index = 0;
     double max_value = output.flat(0);
 
     for (int i = 1; i < output.size(); i++) {
-
         if (output.flat(i) > max_value) {
             max_value = output.flat(i);
             index = i;
@@ -35,7 +60,22 @@ int main() {
     int batch_size = 32;
 
     Linear layer1(784, 128);
+    ReLU relu_layer;
     Linear layer2(128, 10);
+
+    Sequential model;
+
+    model.add(&layer1);
+    model.add(&relu_layer);
+    model.add(&layer2);
+
+    // Test Sequential forward pass
+    Tensor x = dataset.getImage(0);
+
+    Tensor output = model.forward(x);
+
+    std::cout << "Output shape: ";
+    output.printShape();
 
     double learning_rate = 0.01;
     int epochs = 50;
@@ -49,8 +89,7 @@ int main() {
             int current_batch_size =
                 std::min(batch_size, train_size - start);
 
-            layer1.zero_grad();
-            layer2.zero_grad();
+            model.zero_grad();
 
             for (int i = start;
                  i < start + current_batch_size;
@@ -67,10 +106,8 @@ int main() {
 
                 y_true.flat(label) = 1.0;
 
-                Tensor z1 = layer1.forward(x);
-                Tensor hidden = relu(z1);
-
-                Tensor z2 = layer2.forward(hidden);
+                // Forward pass through the model
+                Tensor z2 = model.forward(x);
                 Tensor probabilities = softmax(z2);
 
                 double loss = cross_entropy(
@@ -85,39 +122,18 @@ int main() {
                     probabilities
                 );
 
-                Tensor dX2 = layer2.backward(
-                    hidden,
-                    dZ2
-                );
-
-                Tensor relu_grad = relu_derivative(z1);
-
-                Tensor dZ1({128, 1});
-
-                for (int j = 0; j < dX2.size(); j++) {
-                    dZ1.flat(j) =
-                        dX2.flat(j) * relu_grad.flat(j);
-                }
-
-                layer1.backward(
-                    x,
-                    dZ1
-                );
+                // Backward pass through Sequential
+                model.backward(dZ2);
             }
 
-            layer2.update(
-                learning_rate,
-                current_batch_size
-            );
-
-            layer1.update(
+            // Update all layers
+            model.update(
                 learning_rate,
                 current_batch_size
             );
         }
 
-        double average_loss =
-            total_loss / train_size;
+        double average_loss = total_loss / train_size;
 
         std::cout
             << "Epoch "
@@ -134,11 +150,8 @@ int main() {
         Tensor x = dataset.getImage(i);
         int label = dataset.getLabel(i);
 
-        Tensor z1 = layer1.forward(x);
-        Tensor hidden = relu(z1);
-
-        Tensor z2 = layer2.forward(hidden);
-        Tensor probabilities = softmax(z2);
+        Tensor logits = model.forward(x);
+        Tensor probabilities = softmax(logits);
 
         int prediction = argmax(probabilities);
 
