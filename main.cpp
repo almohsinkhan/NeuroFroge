@@ -7,6 +7,7 @@
 #include "softmax.h"
 #include "cross_entropy.h"
 #include "sequential.h"
+#include "trainer.h"
 
 // Adapter to use your existing ReLU function as a Module
 class ReLU : public Module {
@@ -54,10 +55,6 @@ int main() {
         "data/labels.csv"
     );
 
-    int train_size = 800;
-    int test_size = dataset.size() - train_size;
-
-    int batch_size = 32;
 
     Linear layer1(784, 128);
     ReLU relu_layer;
@@ -69,6 +66,8 @@ int main() {
     model.add(&relu_layer);
     model.add(&layer2);
 
+    Trainer trainer(model, dataset);
+    
     // Test Sequential forward pass
     Tensor x = dataset.getImage(0);
 
@@ -79,69 +78,13 @@ int main() {
 
     double learning_rate = 0.01;
     int epochs = 50;
+    int batch_size = 32;
+    int train_size = 800;
+    int test_size = dataset.size() - train_size;
 
-    for (int epoch = 0; epoch < epochs; epoch++) {
 
-        double total_loss = 0.0;
+    trainer.fit(epochs, batch_size, learning_rate, train_size);
 
-        for (int start = 0; start < train_size; start += batch_size) {
-
-            int current_batch_size =
-                std::min(batch_size, train_size - start);
-
-            model.zero_grad();
-
-            for (int i = start;
-                 i < start + current_batch_size;
-                 i++) {
-
-                Tensor x = dataset.getImage(i);
-                int label = dataset.getLabel(i);
-
-                Tensor y_true({10, 1});
-
-                for (int j = 0; j < 10; j++) {
-                    y_true.flat(j) = 0.0;
-                }
-
-                y_true.flat(label) = 1.0;
-
-                // Forward pass through the model
-                Tensor z2 = model.forward(x);
-                Tensor probabilities = softmax(z2);
-
-                double loss = cross_entropy(
-                    y_true,
-                    probabilities
-                );
-
-                total_loss += loss;
-
-                Tensor dZ2 = cross_entropy_gradient(
-                    y_true,
-                    probabilities
-                );
-
-                // Backward pass through Sequential
-                model.backward(dZ2);
-            }
-
-            // Update all layers
-            model.update(
-                learning_rate,
-                current_batch_size
-            );
-        }
-
-        double average_loss = total_loss / train_size;
-
-        std::cout
-            << "Epoch "
-            << epoch + 1
-            << " | Loss: "
-            << average_loss
-            << "\n";
-    }
 
     int correct = 0;
 

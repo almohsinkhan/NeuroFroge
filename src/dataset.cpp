@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <sstream>
+#include <unordered_set>
 
 
 Dataset::Dataset(const std::string& images_path,
@@ -72,3 +73,11 @@ size_t Dataset::size() const {
     return images.size();
 }
 
+int Dataset::numClasses() const {
+    std::unordered_set<int> unique_labels(
+        labels.begin(),
+        labels.end()
+    );
+
+    return unique_labels.size();
+}
