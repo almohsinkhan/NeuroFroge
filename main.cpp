@@ -8,31 +8,7 @@
 #include "cross_entropy.h"
 #include "sequential.h"
 #include "trainer.h"
-
-// Adapter to use your existing ReLU function as a Module
-class ReLU : public Module {
-public:
-    Tensor forward(const Tensor& input) override {
-        return relu(input);
-    }
-
-    Tensor backward(
-        const Tensor& input,
-        const Tensor& grad_output
-    ) override {
-        Tensor grad = relu_derivative(input);
-
-        for (int i = 0; i < grad.size(); i++) {
-            grad.flat(i) *= grad_output.flat(i);
-        }
-
-        return grad;
-    }
-
-    void zero_grad() override {}
-
-    void update(double learning_rate, int batch_size) override {}
-};
+#include "relu.h"
 
 int argmax(const Tensor& output) {
     int index = 0;
@@ -68,7 +44,7 @@ int main() {
 
     CrossEntropyLoss loss;
     Trainer trainer(model, dataset, loss);  
-      
+
     // Test Sequential forward pass
     Tensor x = dataset.getImage(0);
 
