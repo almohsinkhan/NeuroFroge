@@ -3,10 +3,8 @@
 #include "softmax.h"
 #include "cross_entropy.h"
 
-Trainer::Trainer(Sequential& model, Dataset& dataset)
-    : model(model), dataset(dataset) {}
-
-
+Trainer::Trainer(Sequential& model, Dataset& dataset, Loss& loss)
+    : model(model), dataset(dataset), loss(loss) {}
 
 void Trainer::fit(int epochs, int batch_size, double learning_rate, int train_size) {
     int num_classes = dataset.numClasses();
@@ -35,13 +33,13 @@ void Trainer::fit(int epochs, int batch_size, double learning_rate, int train_si
                 Tensor z2 = model.forward(x);
                 Tensor probabilities = softmax(z2);
 
-                double loss = cross_entropy(y_true, probabilities);
+                double loss_value = loss.forward(probabilities, y_true);
 
-                Tensor dZ2 = cross_entropy_gradient(y_true, probabilities);
+                Tensor dZ2 = loss.backward(probabilities, y_true);
 
                 model.backward(dZ2);
 
-                total_loss += loss;
+                total_loss += loss_value;
             }
 
             model.update(learning_rate, current_batch_size);

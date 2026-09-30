@@ -2,12 +2,18 @@
 
 #include "tensor.h"
 
-double binary_cross_entropy(
-    const Tensor& predictions,
-    const Tensor& targets
-);
+class Loss {
+    public:
+        virtual double forward(
+            const Tensor& prediction,
+            const Tensor& target
+        ) = 0;
 
-Tensor binary_cross_entropy_backward(
-    const Tensor& predictions,
-    const Tensor& targets
-);
+        virtual Tensor backward(
+            const Tensor& prediction,
+            const Tensor& target
+        ) = 0;
+
+        virtual ~Loss() = default;
+};
+

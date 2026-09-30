@@ -28,3 +28,18 @@ Tensor cross_entropy_gradient(
 
     return grad;
 }
+
+double CrossEntropyLoss::forward(
+    const Tensor& prediction,
+    const Tensor& target
+) {
+    return cross_entropy(target, prediction);
+}
+
+Tensor CrossEntropyLoss::backward(
+    const Tensor& prediction,
+    const Tensor& target
+) {
+    return cross_entropy_gradient(target, prediction);
+}
+

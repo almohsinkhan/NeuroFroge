@@ -66,8 +66,9 @@ int main() {
     model.add(&relu_layer);
     model.add(&layer2);
 
-    Trainer trainer(model, dataset);
-    
+    CrossEntropyLoss loss;
+    Trainer trainer(model, dataset, loss);  
+      
     // Test Sequential forward pass
     Tensor x = dataset.getImage(0);
 
