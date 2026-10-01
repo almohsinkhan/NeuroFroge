@@ -31,10 +31,12 @@ int main() {
         "data/labels.csv"
     );
 
+    // number of classes in the dataset
+    int num_classes = dataset.numClasses();
 
     Linear layer1(784, 128);
     ReLU relu_layer;
-    Linear layer2(128, 10);
+    Linear layer2(128, num_classes);
 
     Sequential model;
 
