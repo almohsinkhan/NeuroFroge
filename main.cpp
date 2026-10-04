@@ -34,15 +34,12 @@ int main() {
     // number of classes in the dataset
     int num_classes = dataset.numClasses();
 
-    Linear layer1(784, 128);
-    ReLU relu_layer;
-    Linear layer2(128, num_classes);
-
     Sequential model;
 
-    model.add(&layer1);
-    model.add(&relu_layer);
-    model.add(&layer2);
+    model.add<Linear>(784, 128);
+    model.add<ReLU>();
+    model.add<Linear>(128, num_classes);
+
 
     CrossEntropyLoss loss;
     Trainer trainer(model, dataset, loss);  
