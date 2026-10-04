@@ -10,4 +10,8 @@ class Sigmoid : public Activation {
             const Tensor& input,
             const Tensor& grad_output
         ) override ;
+
+        std::string name() const override {
+            return "Sigmoid";
+        }
 };

@@ -39,4 +39,8 @@ public:
 
     Tensor& getGradWeight();
     Tensor& getGradBias();
+
+    std::string name() const override {
+        return "Linear";
+    }
 };

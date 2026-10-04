@@ -40,7 +40,8 @@ int main() {
     model.add<ReLU>();
     model.add<Linear>(128, num_classes);
 
-
+    model.print_summary();
+    
     CrossEntropyLoss loss;
     Trainer trainer(model, dataset, loss);  
 

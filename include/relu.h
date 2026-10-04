@@ -11,4 +11,8 @@ class ReLU : public Activation {
             const Tensor& grad_output
         ) override;
 
+        std::string name() const override {
+            return "ReLU";
+        }
+
 };

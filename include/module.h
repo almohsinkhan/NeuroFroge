@@ -1,6 +1,7 @@
 #pragma once
 
 #include "tensor.h"
+#include <string>
 
 class Module {
     public:
@@ -20,6 +21,8 @@ class Module {
             int batch_size
         ) = 0;
 
+        virtual std::string name() const = 0;
+        
         /*
         Later, our Sequential model will store layers through Module* pointers. Since a Linear object is also a Module, 
         we need to ensure it gets destroyed correctly when deleted through its base-class pointer

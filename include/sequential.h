@@ -4,6 +4,7 @@
 #include <vector>
 #include <memory>
 #include <utility>
+#include <iostream>
 #include <stdexcept>
 
 class Sequential{
@@ -73,5 +74,11 @@ class Sequential{
         void print_summary() const {
             std::cout << "Sequential Model\n";
             std::cout << "Layers: " << layers.size() << "\n";
+
+            for (size_t i = 0; i < layers.size(); i++){
+                std::cout << i << ": " 
+                          << layers[i]->name() 
+                          << "\n";    
+            }
         }
 };
