@@ -19,10 +19,10 @@ Tensor matmul(const Tensor& A, const Tensor& B) {
             double sum = 0.0;
 
             for (int k = 0; k < n; k++) {
-                sum += A({i, k}) * B({k, j});
-            }
-
-            C({i, j}) = sum;
+                sum += A.flat(i*n+k)
+                        * B.flat(k*p+j);
+                        }
+            C.flat(i*p+j) = sum;
         }
     }
 
