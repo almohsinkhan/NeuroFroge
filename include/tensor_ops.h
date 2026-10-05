@@ -17,3 +17,13 @@ Tensor sum(const Tensor& A);
 Tensor mean(const Tensor& A);
 
 Tensor transpose(const Tensor& A);
+
+Tensor matmul_transpose_right(
+    const Tensor& A,
+    const Tensor& B
+);
+
+Tensor matmul_transpose_left(
+    const Tensor& A,
+    const Tensor& B
+);

@@ -71,11 +71,7 @@ Tensor Linear::backward(
     const Tensor& input,
     const Tensor& dZ
 ) {
-
-    Tensor input_T = transpose(input);
-
-    Tensor current_grad_weight =
-        matmul(dZ, input_T);
+    Tensor current_grad_weight = matmul_transpose_right(dZ, input);
 
     for (int i = 0; i < grad_weight.size(); i++) {
         grad_weight.flat(i) +=
@@ -86,9 +82,7 @@ Tensor Linear::backward(
         grad_bias.flat(i) += dZ.flat(i);
     }
 
-    Tensor weight_T = transpose(weight);
-
-    Tensor dX = matmul(weight_T, dZ);
+    Tensor dX = matmul_transpose_left(weight, dZ);
 
     return dX;
 }
