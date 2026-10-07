@@ -5,14 +5,27 @@ double cross_entropy(
     const Tensor& y_true,
     const Tensor& y_pred
 ) {
-    double loss = 0.0;
+    int num_classes = y_pred.getShape()[0];
+    int batch_size = y_pred.getShape()[1];
 
-    for (int i = 0; i < y_true.size(); i++) {
-        loss -= y_true.flat(i) *
-                std::log(y_pred.flat(i));
+    double total_loss = 0.0;
+
+    for (int j = 0; j < batch_size; j++) {
+
+        for (int i = 0; i < num_classes; i++) {
+
+            double target =
+                y_true.flat(i * batch_size + j);
+
+            double prediction =
+                y_pred.flat(i * batch_size + j);
+
+            total_loss -=
+                target * std::log(prediction);
+        }
     }
 
-    return loss;
+    return total_loss / batch_size;
 }
 
 Tensor cross_entropy_gradient(

@@ -59,10 +59,16 @@ Tensor Linear::forward(const Tensor& input) {
 
     Tensor output = matmul(weight, input);
 
-    for (int i = 0; i < output.size(); i++) {
-        output({i, 0}) += bias({i});
-    }
+    int batch_size = output.getShape()[1];
+    int out_features = output.getShape()[0];
 
+    for (int i = 0; i < out_features; i++) {
+        for (int j = 0; j < batch_size; j++) {
+
+            output.flat(i * batch_size + j)
+                += bias.flat(i);
+        }
+    }
     return output;
 }
 
@@ -78,8 +84,15 @@ Tensor Linear::backward(
             current_grad_weight.flat(i);
     }
 
-    for (int i = 0; i < bias.size(); i++) {
-        grad_bias.flat(i) += dZ.flat(i);
+    int out_features = dZ.getShape()[0];
+    int batch_size = dZ.getShape()[1];
+
+    for (int i = 0; i < out_features; i++) {
+        for (int j = 0; j < batch_size; j++) {
+
+            grad_bias.flat(i)
+                += dZ.flat(i * batch_size + j);
+        }
     }
 
     Tensor dX = matmul_transpose_left(weight, dZ);

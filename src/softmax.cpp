@@ -5,26 +5,46 @@ Tensor softmax(const Tensor& input) {
 
     Tensor output(input.getShape());
 
-    double max_value = input.flat(0);
+    int num_classes = input.getShape()[0];
+    int batch_size = input.getShape()[1];
 
-    // Find maximum value
-    for (int i = 1; i < input.size(); i++) {
-        if (input.flat(i) > max_value) {
-            max_value = input.flat(i);
+    for (int j = 0; j < batch_size; j++) {
+
+        // Find maximum for this sample
+        double max_value = input.flat(j);
+
+        for (int i = 1; i < num_classes; i++) {
+
+            double value =
+                input.flat(i * batch_size + j);
+
+            if (value > max_value) {
+                max_value = value;
+            }
         }
-    }
 
-    // Calculate exponentials
-    double sum = 0.0;
+        // Calculate exponentials
+        double sum = 0.0;
 
-    for (int i = 0; i < input.size(); i++) {
-        output.flat(i) = std::exp(input.flat(i) - max_value);
-        sum += output.flat(i);
-    }
+        for (int i = 0; i < num_classes; i++) {
 
-    // Normalize
-    for (int i = 0; i < input.size(); i++) {
-        output.flat(i) /= sum;
+            double value =
+                std::exp(
+                    input.flat(i * batch_size + j)
+                    - max_value
+                );
+
+            output.flat(i * batch_size + j) = value;
+
+            sum += value;
+        }
+
+        // Normalize
+        for (int i = 0; i < num_classes; i++) {
+
+            output.flat(i * batch_size + j)
+                /= sum;
+        }
     }
 
     return output;

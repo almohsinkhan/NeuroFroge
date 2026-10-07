@@ -2,56 +2,118 @@
 #include "trainer.h"
 #include "softmax.h"
 #include "cross_entropy.h"
+#include "dataloader.h"
 
-Trainer::Trainer(Sequential& model, Dataset& dataset, Loss& loss)
-    : model(model), dataset(dataset), loss(loss) {}
+Trainer::Trainer(
+    Sequential& model,
+    Dataset& dataset,
+    Loss& loss
+)
+    : model(model),
+      dataset(dataset),
+      loss(loss)
+{
+}
 
-void Trainer::fit(int epochs, int batch_size, double learning_rate, int train_size) {
+void Trainer::fit(
+    int epochs,
+    int batch_size,
+    double learning_rate,
+    int train_size
+) {
     int num_classes = dataset.numClasses();
+
+    DataLoader loader(
+        dataset,
+        batch_size,
+        train_size
+    );
 
     for (int epoch = 0; epoch < epochs; epoch++) {
 
         double total_loss = 0.0;
 
-        for (int start = 0; start < train_size; start += batch_size){
-            int current_batch_size = std::min(batch_size, train_size - start);
+        loader.reset();
+
+        while (loader.hasNext()) {
+
+            Batch batch = loader.next();
+
+
+            int current_batch_size =
+                batch.images.getShape()[1];
 
             model.zero_grad();
 
-            for(int i = start; i < start + current_batch_size; i++){
-                Tensor x = dataset.getImage(i);
-                int label = dataset.getLabel(i);
+            // Create one-hot targets
+            Tensor y_true({
+                num_classes,
+                current_batch_size
+            });
 
-                Tensor y_true({num_classes, 1});
+            for (int j = 0; j < current_batch_size; j++) {
 
-                for (int j = 0; j < num_classes; j++) {
-                    y_true.flat(j) = 0.0;
+                int label = batch.labels[j];
+
+                for (int i = 0; i < num_classes; i++) {
+
+                    y_true.flat(
+                        i * current_batch_size + j
+                    ) = 0.0;
                 }
 
-                y_true.flat(label) = 1.0;
-
-                Tensor z2 = model.forward(x);
-                Tensor probabilities = softmax(z2);
-
-                double loss_value = loss.forward(probabilities, y_true);
-
-                Tensor dZ2 = loss.backward(probabilities, y_true);
-
-                model.backward(dZ2);
-
-                total_loss += loss_value;
+                y_true.flat(
+                    label * current_batch_size + j
+                ) = 1.0;
             }
 
-            model.update(learning_rate, current_batch_size);
+            // Forward entire batch
+            Tensor logits =
+                model.forward(batch.images);
+
+            // Softmax entire batch
+            Tensor probabilities =
+                softmax(logits);
+
+        
+            // Calculate batch loss
+            double loss_value =
+                loss.forward(
+                    probabilities,
+                    y_true
+                );
+
+            // Calculate gradient
+            Tensor dZ =
+                loss.backward(
+                    probabilities,
+                    y_true
+                );
+
+            // Backward entire batch
+            model.backward(dZ);
+
+            // Accumulate loss
+            total_loss +=
+                loss_value * current_batch_size;
+
+            // Update once for this batch
+            model.update(
+                learning_rate,
+                current_batch_size
+            );
         }
 
-        double average_loss = total_loss / train_size;
+        double average_loss =
+            total_loss / train_size;
 
-        std::cout << "Epoch "
-                << epoch + 1
-                << "/" << epochs
-                << " | Loss: "
-                << average_loss
-                << std::endl;
+        std::cout
+            << "Epoch "
+            << epoch + 1
+            << "/"
+            << epochs
+            << " | Loss: "
+            << average_loss
+            << std::endl;
     }
 }
