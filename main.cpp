@@ -41,7 +41,7 @@ int main() {
     model.add<Linear>(128, num_classes);
 
     model.print_summary();
-    
+
     CrossEntropyLoss loss;
     Trainer trainer(model, dataset, loss);  
 
@@ -54,7 +54,7 @@ int main() {
     output.printShape();
 
     double learning_rate = 0.01;
-    int epochs = 50;
+    int epochs = 5;
     int batch_size = 32;
     int train_size = 800;
     int test_size = dataset.size() - train_size;

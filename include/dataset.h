@@ -19,4 +19,6 @@ public:
     int numClasses() const;
     size_t size() const;
 
+    std::vector<int> sampleShape() const;
+
 };

@@ -81,3 +81,11 @@ int Dataset::numClasses() const {
 
     return unique_labels.size();
 }
+
+std::vector<int> Dataset::sampleShape() const {
+    if (images.empty()) {
+        throw std::runtime_error("Dataset is empty");
+    }
+
+    return images[0].getShape();
+}

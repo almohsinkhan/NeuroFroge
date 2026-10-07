@@ -13,16 +13,17 @@ Tensor matmul(const Tensor& A, const Tensor& B) {
 
     Tensor C({m, p});
 
+    /*OLD: i → j → k
+      NEW: i → k → j
+      which is better for cache locality (contiguous in memory)*/
     for (int i = 0; i < m; i++) {
-        for (int j = 0; j < p; j++) {
+        for (int k = 0; k < n; k++){
 
-            double sum = 0.0;
+            double a = A.flat(i * n + k);
 
-            for (int k = 0; k < n; k++) {
-                sum += A.flat(i*n+k)
-                        * B.flat(k*p+j);
-                        }
-            C.flat(i*p+j) = sum;
+            for (int j = 0; j < p; j++) {
+                C.flat(i * p + j) += a * B.flat(k * p + j);
+            }
         }
     }
 
@@ -39,7 +40,6 @@ Tensor matmul_transpose_right(
     int n = A.getShape()[1];
     int p = B.getShape()[0];
 
-    // A columns must match B columns
     assert(n == B.getShape()[1]);
 
     Tensor C({m, p});
