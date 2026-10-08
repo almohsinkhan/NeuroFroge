@@ -1,6 +1,62 @@
 #include "tensor_ops.h"
 
 #include <cassert>
+#include <vector>
+#include <algorithm>
+
+std::vector<int> broadcastShape(
+    const Tensor& A,
+    const Tensor& B
+) {
+    int ndimA = A.ndim();
+    int ndimB = B.ndim();
+
+    int resultNdim = std::max(ndimA, ndimB);
+
+    std::vector<int> resultShape(resultNdim);
+
+    for (int i = 0; i < resultNdim; i++) {
+
+        int dimA = (i < ndimA)
+            ? A.getShape()[ndimA - 1 - i]
+            : 1;
+
+        int dimB = (i < ndimB)
+            ? B.getShape()[ndimB - 1 - i]
+            : 1;
+
+        assert(dimA == dimB || dimA == 1 || dimB == 1);
+
+        resultShape[resultNdim - 1 - i] =
+            std::max(dimA, dimB);
+    }
+
+    return resultShape;
+}
+
+
+template <typename Operation>
+Tensor elementwise(
+    const Tensor& A,
+    const Tensor& B,
+    Operation op
+) {
+    std::vector<int> resultShape = broadcastShape(A, B);
+
+    Tensor A_broadcasted = A.broadcastTo(resultShape);
+    Tensor B_broadcasted = B.broadcastTo(resultShape);
+
+    Tensor C(resultShape);
+
+    for (int i = 0; i < C.size(); i++) {
+        C.flat(i) = op(
+            A_broadcasted.flat(i),
+            B_broadcasted.flat(i)
+        );
+    }
+
+    return C;
+}
 
 Tensor matmul(const Tensor& A, const Tensor& B) {
 
@@ -95,40 +151,23 @@ Tensor matmul_transpose_left(
 
 Tensor add(const Tensor& A, const Tensor& B) {
 
-    assert(A.getShape() == B.getShape());
-
-    Tensor C(A.getShape());
-
-    for (int i = 0; i < A.size(); i++) {
-        C.flat(i) = A.flat(i) + B.flat(i);
-    }
-
-    return C;
+    return elementwise(A, B, [](double a, double b) {
+        return a + b;
+    });
 }
 
 Tensor multiply(const Tensor& A, const Tensor& B) {
 
-    assert(A.getShape() == B.getShape());
-
-    Tensor C(A.getShape());
-
-    for (int i = 0; i < A.size(); i++) {
-        C.flat(i) = A.flat(i) * B.flat(i);
-    }
-
-    return C;
+    return elementwise(A, B, [](double a, double b) {
+        return a * b;
+    });
 }
 
 Tensor subtract(const Tensor& A, const Tensor& B) {
-    assert(A.getShape() == B.getShape());
 
-    Tensor C(A.getShape());
-
-    for (int i = 0; i < A.size(); i++) {
-        C.flat(i) = A.flat(i) - B.flat(i);
-    }
-
-    return C;
+    return elementwise(A, B, [](double a, double b) {
+        return a - b;
+    });
 }
 
 Tensor scale(const Tensor& A, double scalar) {
@@ -183,3 +222,4 @@ Tensor transpose(const Tensor& A) {
 
     return result;
 }
+

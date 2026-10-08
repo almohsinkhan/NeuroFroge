@@ -27,3 +27,9 @@ Tensor matmul_transpose_left(
     const Tensor& A,
     const Tensor& B
 );
+
+std::vector<int> broadcastShape(
+    const Tensor& A,
+    const Tensor& B
+);
+
