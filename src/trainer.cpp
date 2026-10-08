@@ -26,7 +26,8 @@ void Trainer::fit(
     DataLoader loader(
         dataset,
         batch_size,
-        train_size
+        train_size,
+        true
     );
 
     for (int epoch = 0; epoch < epochs; epoch++) {
