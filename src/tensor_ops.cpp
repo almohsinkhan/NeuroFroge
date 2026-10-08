@@ -206,20 +206,20 @@ Tensor mean(const Tensor& A) {
     return C;
 }
 
+
 Tensor transpose(const Tensor& A) {
+
     assert(A.ndim() == 2);
 
-    int rows = A.getShape()[0];
-    int cols = A.getShape()[1];
+    std::vector<int> newShape = {
+        A.getShape()[1],
+        A.getShape()[0]
+    };
 
-    Tensor result({cols, rows});
+    std::vector<int> newStrides = {
+        A.getStrides()[1],
+        A.getStrides()[0]
+    };
 
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < cols; j++) {
-            result({j, i}) = A({i, j});
-        }
-    }
-
-    return result;
+    return Tensor(newShape, newStrides, A.getData());
 }
-

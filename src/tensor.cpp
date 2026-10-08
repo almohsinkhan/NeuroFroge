@@ -4,6 +4,17 @@
 #include <cassert>
 #include <algorithm>
 
+Tensor::Tensor(
+    const std::vector<int>& shape,
+    const std::vector<int>& strides,
+    std::shared_ptr<std::vector<double>> data
+)
+    : shape(shape),
+      strides(strides),
+      data(data)
+{
+}
+
 Tensor::Tensor(const std::vector<int>& shape)
     : shape(shape)
 {
@@ -16,7 +27,7 @@ Tensor::Tensor(const std::vector<int>& shape)
         stride *= shape[i];
     }
 
-    data.resize(stride, 0.0);
+    data = std::make_shared<std::vector<double>>(stride, 0.0);
 }
 
 int Tensor::ndim() const {
@@ -24,7 +35,13 @@ int Tensor::ndim() const {
 }
 
 int Tensor::size() const {
-    return data.size();
+
+    int total = 1;
+
+    for (int dim : shape)
+        total *= dim;
+
+    return total;
 }
 
 const std::vector<int>& Tensor::getShape() const {
@@ -32,13 +49,53 @@ const std::vector<int>& Tensor::getShape() const {
 }
 
 double& Tensor::flat(int index) {
-    assert(index >= 0 && index < data.size());
-    return data[index];
+
+    assert(index >= 0 && index < size());
+
+    // Fast path for contiguous tensors
+    if (isContiguous())
+        return (*data)[index];
+
+    // View path
+    int remaining = index;
+    int physicalIndex = 0;
+
+    for (int i = ndim() - 1; i >= 0; i--) {
+
+        int coordinate = remaining % shape[i];
+        remaining /= shape[i];
+
+        physicalIndex += coordinate * strides[i];
+    }
+
+    assert(physicalIndex >= 0 &&
+           physicalIndex < data->size());
+
+    return (*data)[physicalIndex];
 }
 
 double Tensor::flat(int index) const {
-    assert(index >= 0 && index < data.size());
-    return data[index];
+
+    assert(index >= 0 && index < size());
+
+    if (isContiguous())
+        return (*data)[index];
+
+    int remaining = index;
+    int physicalIndex = 0;
+
+    for (int i = ndim() - 1; i >= 0; i--) {
+
+        int coordinate = remaining % shape[i];
+        remaining /= shape[i];
+
+        physicalIndex += coordinate * strides[i];
+    }
+
+    assert(physicalIndex >= 0 &&
+           physicalIndex < data->size());
+
+    return (*data)[physicalIndex];
 }
 
 double& Tensor::operator()(const std::vector<int>& indices) {
@@ -54,7 +111,7 @@ double& Tensor::operator()(const std::vector<int>& indices) {
         index += indices[i] * strides[i];
     }
 
-    return data[index];
+    return (*data)[index];
 }
 
 double Tensor::operator()(const std::vector<int>& indices) const {
@@ -70,7 +127,7 @@ double Tensor::operator()(const std::vector<int>& indices) const {
         index += indices[i] * strides[i];
     }
 
-    return data[index];
+    return (*data)[index];
 }
 
 bool Tensor::isBroadcastable(const Tensor& other) const {
@@ -101,53 +158,55 @@ bool Tensor::isBroadcastable(const Tensor& other) const {
 
 Tensor Tensor::broadcastTo(const std::vector<int>& newShape) const {
 
-    // Check that broadcasting is possible
-    Tensor target(newShape);
-
     int oldNdim = ndim();
     int newNdim = newShape.size();
 
     assert(newNdim >= oldNdim);
 
-    // Check dimensions
-    for (int i = 0; i < oldNdim; i++) {
-        int oldDim = shape[oldNdim - 1 - i];
-        int newDim = newShape[newNdim - 1 - i];
+    std::vector<int> newStrides(newNdim);
 
-        assert(oldDim == newDim || oldDim == 1);
-    }
+    for (int i = 0; i < newNdim; i++) {
 
-    // Fill target tensor
-    for (int i = 0; i < target.size(); i++) {
+        int newD = newNdim - 1 - i;
 
-        int remaining = i;
-        int oldIndex = 0;
+        if (i < oldNdim) {
 
-        for (int d = newNdim - 1; d >= 0; d--) {
+            int oldD = oldNdim - 1 - i;
 
-            int index = remaining % newShape[d];
-            remaining /= newShape[d];
+            int oldDim = shape[oldD];
+            int newDim = newShape[newD];
 
-            // Corresponding old dimension
-            int oldD = d - (newNdim - oldNdim);
+            assert(oldDim == newDim || oldDim == 1);
 
-            if (oldD >= 0) {
+            if (oldDim == 1 && newDim > 1)
+                newStrides[newD] = 0;
+            else
+                newStrides[newD] = strides[oldD];
 
-                // If old dimension is 1,
-                // always use index 0.
-                int oldIndexValue =
-                    (shape[oldD] == 1) ? 0 : index;
+        } else {
 
-                oldIndex += oldIndexValue * strides[oldD];
-            }
+            // New dimension added to the left
+            newStrides[newD] = 0;
         }
-
-        target.flat(i) = data[oldIndex];
     }
 
-    return target;
+    return Tensor(newShape, newStrides, data);
 }
 
+bool Tensor::isContiguous() const {
+
+    int expectedStride = 1;
+
+    for (int i = ndim() - 1; i >= 0; i--) {
+
+        if (strides[i] != expectedStride)
+            return false;
+
+        expectedStride *= shape[i];
+    }
+
+    return true;
+}
 
 void Tensor::printShape() const {
 
@@ -161,4 +220,63 @@ void Tensor::printShape() const {
     }
 
     std::cout << ")\n";
+}
+
+Tensor Tensor::reshape(const std::vector<int>& newShape) const {
+
+    int totalSize = size();
+
+    int knownSize = 1;
+    int unknownIndex = -1;
+
+    for (int i = 0; i < newShape.size(); i++) {
+
+        if (newShape[i] == -1) {
+
+            assert(unknownIndex == -1);
+            unknownIndex = i;
+
+        } else {
+
+            assert(newShape[i] > 0);
+            knownSize *= newShape[i];
+        }
+    }
+
+    std::vector<int> finalShape = newShape;
+
+    if (unknownIndex != -1) {
+
+        assert(totalSize % knownSize == 0);
+
+        finalShape[unknownIndex] = totalSize / knownSize;
+    }
+
+    int newSize = 1;
+
+    for (int dim : finalShape)
+        newSize *= dim;
+
+    assert(newSize == totalSize);
+    assert(isContiguous());
+
+    std::vector<int> newStrides(finalShape.size());
+
+    int stride = 1;
+
+    for (int i = finalShape.size() - 1; i >= 0; i--) {
+
+        newStrides[i] = stride;
+        stride *= finalShape[i];
+    }
+
+    return Tensor(finalShape, newStrides, data);
+}
+
+const std::vector<int>& Tensor::getStrides() const {
+    return strides;
+}
+
+std::shared_ptr<std::vector<double>> Tensor::getData() const {
+    return data;
 }

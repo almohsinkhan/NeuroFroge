@@ -1,15 +1,25 @@
 #pragma once
 
 #include <vector>
+#include <memory>
 
 class Tensor {
 private:
     std::vector<int> shape;
     std::vector<int> strides;
-    std::vector<double> data;
+    std::shared_ptr<std::vector<double>> data;
 
 public:
     Tensor(const std::vector<int>& shape);
+
+    // Constructor for creating a tensor with a specific data pointer
+    Tensor(
+        const std::vector<int>& shape,
+        const std::vector<int>& strides,
+        std::shared_ptr<std::vector<double>> data
+    );
+
+    Tensor reshape(const std::vector<int>& newShape) const;
 
     int ndim() const;
     int size() const;
@@ -24,6 +34,11 @@ public:
 
     bool isBroadcastable(const Tensor& other) const;
     Tensor broadcastTo(const std::vector<int>& newShape) const;
-    
+
+    bool isContiguous() const;
+
+    const std::vector<int>& getStrides() const;
+
+    std::shared_ptr<std::vector<double>> getData() const;
     void printShape() const;
 };
