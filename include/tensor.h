@@ -22,5 +22,8 @@ public:
     double& operator()(const std::vector<int>& indices);
     double operator()(const std::vector<int>& indices) const;
 
+    bool isBroadcastable(const Tensor& other) const;
+    Tensor broadcastTo(const std::vector<int>& newShape) const;
+    
     void printShape() const;
 };
