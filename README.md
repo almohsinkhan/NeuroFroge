@@ -1,261 +1,132 @@
 # NeuroFroge
 
-A neural network framework built from scratch in **C++**, with the goal of understanding how deep learning systems work internally by implementing the fundamental components without relying on high-level frameworks.
+**A neural network framework built from scratch in C++.**
 
-NeuroFroge started with a simple goal: eventually build a **Transformer from scratch**. Instead of jumping directly into Transformers, I'm building the framework step by step — starting from tensors and backpropagation, then moving toward CNNs, GPU acceleration, and eventually Transformers.
+NeuroFroge is a learning project focused on understanding how deep learning frameworks work internally. Instead of relying on high-level libraries, I'm implementing the fundamental building blocks of neural networks from scratch in C++.
+
+The long-term goal is to build a Transformer from scratch. Rather than jumping directly into Transformers, I'm taking an incremental approach: understanding tensors, backpropagation, memory management, and neural network architectures before moving toward CNNs, GPU acceleration, and attention mechanisms.
 
 ## Current Progress
 
-### Core Components
+NeuroFroge currently supports the basic workflow required to train a neural network.
 
-* [x] Tensor class
-* [x] N-dimensional tensor representation
-* [x] Tensor indexing and operations
-* [x] Matrix multiplication
-* [x] Linear layer
-* [x] Weight initialization
-* [x] ReLU
-* [x] Sigmoid
-* [x] Tanh
-* [x] Softmax
-* [x] Cross-entropy loss
-* [x] Backpropagation
-* [x] Gradient accumulation
-* [x] SGD
-* [x] Mini-batch training
-* [x] Dataset loading from CSV
+- **Tensor operations:** N-dimensional tensors, indexing, broadcasting, reshaping, and transposing.
+- **Memory management:** Shared-storage views, stride-based indexing, and contiguous-memory detection.
+- **Matrix operations:** Matrix multiplication and specialized multiplication operations used during backpropagation.
+- **Neural network layers:** Linear layers and activation functions, including ReLU, Sigmoid, Tanh, and Softmax.
+- **Training:** Cross-entropy loss, backpropagation, gradient accumulation, SGD, and mini-batch training.
+- **Data handling:** Loading image and label data from CSV files.
 
-### Current Network
+I'm also experimenting with CPU performance through profiling, compiler optimizations, and more efficient tensor access.
 
-The current model is:
+## Current Model
 
-```text
-Input
-784
- │
- ▼
-Linear
-784 → 128
- │
- ▼
-ReLU
- │
- ▼
-Linear
-128 → 10
- │
- ▼
-Softmax
- │
- ▼
-Prediction
-```
+The current experiment uses a fully connected neural network trained on Fashion-MNIST.
 
-It is currently being trained on **Fashion-MNIST**.
+| Component | Configuration |
+|---|---|
+| Input | 784 features (28 × 28 image) |
+| Hidden layer | Linear: 784 → 128 |
+| Activation | ReLU |
+| Output layer | Linear: 128 → 10 |
+| Output activation | Softmax |
+| Loss | Cross-entropy |
+| Optimizer | SGD |
 
-With 800 training samples and 200 test samples, the current implementation reaches approximately:
+The model classifies images into the 10 Fashion-MNIST categories.
 
-```text
-Test Accuracy: ~79%
-```
+Training and evaluation are still experimental. Accuracy varies between runs, so I plan to establish a reproducible benchmark as the framework develops.
 
-This is mainly an experimental implementation intended to validate the framework and understand the underlying mechanics.
+## How Training Works
 
-## Training Pipeline
+The framework implements the main steps of a neural network training loop:
 
-The complete training pipeline currently looks like:
+1. Load a batch of images and labels.
+2. Perform the forward pass to generate predictions.
+3. Calculate the loss by comparing predictions with the targets.
+4. Propagate gradients backward through the network.
+5. Accumulate gradients for the trainable parameters.
+6. Update the parameters using gradient descent.
 
-```text
-Dataset
-   │
-   ▼
-Tensor
-   │
-   ▼
-Forward Pass
-   │
-   ▼
-Loss
-   │
-   ▼
-Backpropagation
-   │
-   ▼
-Gradient Accumulation
-   │
-   ▼
-Gradient Descent
-   │
-   ▼
-Updated Parameters
-```
-
-Mini-batch training is currently supported:
-
-```text
-Batch of images
-      │
-      ▼
-Forward Pass
-      │
-      ▼
-Calculate Loss
-      │
-      ▼
-Backward Pass
-      │
-      ▼
-Accumulate Gradients
-      │
-      ▼
-Update Parameters
-```
+Implementing these steps myself helps me understand how data and gradients move through a neural network, rather than treating training as a black box.
 
 ## Project Structure
 
 ```text
 NeuroFroge/
-│
-├── include/
-│   ├── tensor.h
-│   ├── tensor_ops.h
-│   ├── linear.h
-│   ├── activation.h
-│   ├── softmax.h
-│   ├── cross_entropy.h
-│   ├── initialization.h
-│   └── dataset.h
-│
-├── src/
-│   ├── tensor.cpp
-│   ├── tensor_ops.cpp
-│   ├── linear.cpp
-│   ├── activation.cpp
-│   ├── softmax.cpp
-│   ├── cross_entropy.cpp
-│   ├── initialization.cpp
-│   └── dataset.cpp
-│
-├── data/
-│   ├── images.csv
-│   └── labels.csv
-│
-├── main.cpp
+├── include/        # Header files and interfaces
+├── src/            # Tensor operations, layers, losses, and dataset
+├── examples/       # Small experiments and tests
+├── data/           # Local training data
+├── main.cpp        # Training entry point
 └── README.md
 ```
 
-## Dataset
-
-The current experiment uses **Fashion-MNIST**.
-
-Images are:
-
-```text
-28 × 28
-```
-
-and flattened into:
-
-```text
-784 × 1
-```
-
-The 10 output classes correspond to the Fashion-MNIST categories.
-
-The dataset is currently preprocessed using Python and exported as CSV so that the C++ framework can load it directly.
-
-## Why Build This?
-
-The goal isn't to compete with frameworks such as PyTorch.
-
-The goal is to understand what happens underneath them.
-
-I want to understand things like:
-
-* How tensors are represented in memory
-* How matrix multiplication works
-* How layers store parameters
-* How gradients flow backward
-* How optimizers update parameters
-* How convolution works
-* How GPU computation can accelerate these operations
-* How the components eventually fit together to build a Transformer
+The implementation is organized into separate modules so that individual components can be developed, tested, and improved independently.
 
 ## Roadmap
 
-### Phase 1 — Neural Network Fundamentals
+### 1. Tensor and Neural Network Fundamentals
 
-* [x] Tensor
-* [x] Linear layer
-* [x] Activations
-* [x] Softmax
-* [x] Loss functions
-* [x] Backpropagation
-* [x] SGD
-* [x] Mini-batch training
+- [x] N-dimensional Tensor class
+- [x] Tensor indexing and operations
+- [x] Matrix multiplication
+- [x] Linear layer and weight initialization
+- [x] Activation and loss functions
+- [x] Backpropagation and gradient accumulation
+- [x] SGD and mini-batch training
+- [x] CSV dataset loading
+- [x] Broadcasting and stride-based views
+- [x] Reshape and transpose views
+- [x] Initial CPU performance optimizations
 
-### Phase 2 — Computer Vision
+### 2. Convolutional Neural Networks
 
-* [ ] Conv2D
-* [ ] Conv2D backward pass
-* [ ] Max Pooling
-* [ ] Flatten layer
-* [ ] CNN
-* [ ] Train CNN on Fashion-MNIST
+- [ ] Implement Conv2D
+- [ ] Implement the Conv2D backward pass
+- [ ] Implement max pooling
+- [ ] Implement a flatten layer
+- [ ] Build a CNN
+- [ ] Train and evaluate it on Fashion-MNIST
 
-### Phase 3 — Performance
+### 3. Performance and Systems Engineering
 
-* [ ] Improve CPU utilization
-* [ ] Multithreaded operations
-* [ ] Optimize matrix multiplication
-* [ ] Memory optimization
-* [ ] CUDA support
-* [ ] GPU tensor operations
+- [ ] Improve matrix multiplication further
+- [ ] Add multithreaded CPU operations
+- [ ] Improve memory efficiency
+- [ ] Introduce a proper data pipeline
+- [ ] Explore CUDA and GPU tensor operations
 
-### Phase 4 — Transformer
+### 4. Transformers
 
-* [ ] Embeddings
-* [ ] Positional encoding
-* [ ] Layer normalization
-* [ ] Multi-head self-attention
-* [ ] Feed-forward network
-* [ ] Residual connections
-* [ ] Transformer block
-* [ ] Training pipeline
-* [ ] Complete Transformer
+- [ ] Token embeddings
+- [ ] Positional encoding
+- [ ] Layer normalization
+- [ ] Multi-head self-attention
+- [ ] Feed-forward network
+- [ ] Residual connections
+- [ ] Transformer block
+- [ ] Training pipeline
+- [ ] Build and train a complete Transformer
 
-## Current Focus
+## Why NeuroFroge?
 
-The immediate goal is to implement:
+The goal isn't to compete with mature frameworks such as PyTorch. It's to understand the engineering and mathematics behind them.
 
-```text
-Conv2D
-   ↓
-Backward Pass
-   ↓
-Pooling
-   ↓
-CNN
-```
+Through this project, I want to explore:
 
-After building and understanding the CNN, I'll continue toward GPU acceleration and eventually return to the original goal:
+- How tensors are represented and accessed in memory.
+- How matrix multiplication and broadcasting work.
+- How layers store parameters and calculate gradients.
+- How backpropagation and optimizers work internally.
+- How convolutional operations can be implemented efficiently.
+- How CPU and GPU execution differ.
+- How these components eventually come together in a Transformer.
 
-```text
-Tensor
-   ↓
-Neural Networks
-   ↓
-CNN
-   ↓
-GPU
-   ↓
-Attention
-   ↓
-Transformer
-```
+Each feature is an opportunity to experiment, measure performance, investigate bugs, and understand the underlying implementation.
 
-## Philosophy
+## Development Philosophy
 
 **Build it. Break it. Understand it. Improve it.**
 
-NeuroFroge is primarily a learning project, where every component is implemented to understand what is happening underneath modern deep learning frameworks.
+NeuroFroge is being developed incrementally, with an emphasis on understanding each component before moving to the next. The aim is not simply to implement a neural network, but to learn how deep learning systems are built from the ground up.
