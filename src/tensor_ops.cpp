@@ -86,10 +86,8 @@ Tensor matmul(const Tensor& A, const Tensor& B) {
     return C;
 }
 
-Tensor matmul_transpose_right(
-    const Tensor& A,
-    const Tensor& B
-) {
+
+Tensor matmul_transpose_right(const Tensor& A, const Tensor& B) {
     assert(A.ndim() == 2 && B.ndim() == 2);
 
     int m = A.getShape()[0];
@@ -100,54 +98,86 @@ Tensor matmul_transpose_right(
 
     Tensor C({m, p});
 
-    for (int i = 0; i < m; i++) {
-        for (int j = 0; j < p; j++) {
+    // Fast path: all tensors use contiguous row-major storage.
+    if (A.isContiguous() && B.isContiguous() && C.isContiguous()) {
+        const double* a = A.rowData();
+        const double* b = B.rowData();
+        double* c = C.rowData();
 
-            double sum = 0.0;
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < p; j++) {
+                double sum = 0.0;
 
-            for (int k = 0; k < n; k++) {
-                sum += A.flat(i * n + k)
-                     * B.flat(j * n + k);
+                for (int k = 0; k < n; k++) {
+                    sum += a[i * n + k] * b[j * n + k];
+                }
+
+                c[i * p + j] = sum;
             }
+        }
+    } else {
+        // Fallback: supports non-contiguous views.
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < p; j++) {
+                double sum = 0.0;
 
-            C.flat(i * p + j) = sum;
+                for (int k = 0; k < n; k++) {
+                    sum += A.flat(i * n + k) * B.flat(j * n + k);
+                }
+
+                C.flat(i * p + j) = sum;
+            }
         }
     }
 
     return C;
 }
 
-Tensor matmul_transpose_left(
-    const Tensor& A,
-    const Tensor& B
-) {
+
+Tensor matmul_transpose_left(const Tensor& A, const Tensor& B) {
     assert(A.ndim() == 2 && B.ndim() == 2);
 
     int m = A.getShape()[0];
     int n = A.getShape()[1];
     int p = B.getShape()[1];
 
-    // A^T is n × m, so B must be m × p
     assert(m == B.getShape()[0]);
 
     Tensor C({n, p});
 
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < p; j++) {
+    if (A.isContiguous() && B.isContiguous() && C.isContiguous()) {
+        const double* a = A.rowData();
+        const double* b = B.rowData();
+        double* c = C.rowData();
 
-            double sum = 0.0;
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < p; j++) {
+                double sum = 0.0;
 
-            for (int k = 0; k < m; k++) {
-                sum += A.flat(k * n + i)
-                     * B.flat(k * p + j);
+                for (int k = 0; k < m; k++) {
+                    sum += a[k * n + i] * b[k * p + j];
+                }
+
+                c[i * p + j] = sum;
             }
+        }
+    } else {
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < p; j++) {
+                double sum = 0.0;
 
-            C.flat(i * p + j) = sum;
+                for (int k = 0; k < m; k++) {
+                    sum += A.flat(k * n + i) * B.flat(k * p + j);
+                }
+
+                C.flat(i * p + j) = sum;
+            }
         }
     }
 
     return C;
 }
+
 
 Tensor add(const Tensor& A, const Tensor& B) {
 

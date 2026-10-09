@@ -11,12 +11,14 @@ Tensor::Tensor(
 )
     : shape(shape),
       strides(strides),
+      contiguous(false),
       data(data)
 {
+    contiguous = isContiguous();
 }
 
 Tensor::Tensor(const std::vector<int>& shape)
-    : shape(shape)
+    : shape(shape), contiguous(true)
 {
     strides.resize(shape.size());
 
@@ -194,18 +196,7 @@ Tensor Tensor::broadcastTo(const std::vector<int>& newShape) const {
 }
 
 bool Tensor::isContiguous() const {
-
-    int expectedStride = 1;
-
-    for (int i = ndim() - 1; i >= 0; i--) {
-
-        if (strides[i] != expectedStride)
-            return false;
-
-        expectedStride *= shape[i];
-    }
-
-    return true;
+    return contiguous;
 }
 
 void Tensor::printShape() const {
@@ -279,4 +270,12 @@ const std::vector<int>& Tensor::getStrides() const {
 
 std::shared_ptr<std::vector<double>> Tensor::getData() const {
     return data;
+}
+
+double* Tensor::rowData() {
+    return data->data();
+}
+
+const double* Tensor::rowData() const {
+    return data->data();
 }

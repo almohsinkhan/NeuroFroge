@@ -7,6 +7,7 @@ class Tensor {
 private:
     std::vector<int> shape;
     std::vector<int> strides;
+    bool contiguous;
     std::shared_ptr<std::vector<double>> data;
 
 public:
@@ -40,5 +41,9 @@ public:
     const std::vector<int>& getStrides() const;
 
     std::shared_ptr<std::vector<double>> getData() const;
+
+    double* rowData();
+
+    const double* rowData() const;
     void printShape() const;
 };
