@@ -66,12 +66,15 @@ Batch DataLoader::next() {
     for (int dim : image_shape) {
         sample_size *= dim;
     }
+    std::cout << "Batch shape: ";
 
+    Tensor images({sample_size, current_batch_size});
 
-    Tensor images({
-        sample_size,
-        current_batch_size
-    });
+    for (int dim : images.getShape()) {
+        std::cout << dim << " ";
+    }
+
+    std::cout << std::endl;
 
     std::vector<int> labels;
 

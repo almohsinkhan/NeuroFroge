@@ -28,7 +28,7 @@ Dataset::Dataset(const std::string& images_path,
         std::istringstream iss(line);
         std::string value;
 
-        Tensor image({784, 1});
+        Tensor image({28, 28});
 
         int i = 0;
         while (std::getline(iss, value, ',')) {

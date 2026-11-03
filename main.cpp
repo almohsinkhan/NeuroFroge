@@ -10,12 +10,15 @@
 #include "trainer.h"
 #include "relu.h"
 
-int argmax(const Tensor& output) {
+int argmax(const Tensor &output)
+{
     int index = 0;
     double max_value = output.flat(0);
 
-    for (int i = 1; i < output.size(); i++) {
-        if (output.flat(i) > max_value) {
+    for (int i = 1; i < output.size(); i++)
+    {
+        if (output.flat(i) > max_value)
+        {
             max_value = output.flat(i);
             index = i;
         }
@@ -24,12 +27,12 @@ int argmax(const Tensor& output) {
     return index;
 }
 
-int main() {
+int main()
+{
 
     Dataset dataset(
         "data/images.csv",
-        "data/labels.csv"
-    );
+        "data/labels.csv");
 
     // number of classes in the dataset
     int num_classes = dataset.numClasses();
@@ -43,11 +46,15 @@ int main() {
     model.print_summary();
 
     CrossEntropyLoss loss;
-    Trainer trainer(model, dataset, loss);  
+    Trainer trainer(model, dataset, loss);
 
     // Test Sequential forward pass
-    Tensor x = dataset.getImage(0);
+    Tensor image = dataset.getImage(0);
+    Tensor x({784, 1});
 
+    for (int i = 0; i < image.size(); i++) {
+        x.flat(i) = image.flat(i);
+    }
     Tensor output = model.forward(x);
 
     std::cout << "Output shape: ";
@@ -59,23 +66,29 @@ int main() {
     int train_size = 800;
     int test_size = dataset.size() - train_size;
 
-
     trainer.fit(epochs, batch_size, learning_rate, train_size);
-
 
     int correct = 0;
 
-    for (int i = train_size; i < dataset.size(); i++) {
+    for (int i = train_size; i < dataset.size(); i++)
+    {
 
-        Tensor x = dataset.getImage(i);
         int label = dataset.getLabel(i);
+        
+        Tensor image = dataset.getImage(i);
+        Tensor x({784, 1});
+
+        for (int j = 0; j < image.size(); j++) {
+            x.flat(j) = image.flat(j);
+        }
 
         Tensor logits = model.forward(x);
         Tensor probabilities = softmax(logits);
 
         int prediction = argmax(probabilities);
 
-        if (prediction == label) {
+        if (prediction == label)
+        {
             correct++;
         }
     }
