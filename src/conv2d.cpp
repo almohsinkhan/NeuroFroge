@@ -1,4 +1,5 @@
 #include "conv2d.h"
+#include "execution.h"
 
 #include <cassert>
 #include <cmath>
@@ -101,11 +102,12 @@ Tensor Conv2D::forward(const Tensor& input) {
         output_width
     });
 
-    #ifdef _OPENMP
-    #pragma omp parallel for collapse(2)
-    #endif
-    for (int n = 0; n < batch_size; n++) {
-        for (int out_c = 0; out_c < out_channels; out_c++) {
+    execution::parallelFor(
+        static_cast<std::size_t>(batch_size) * out_channels,
+        [&](std::size_t output_group) {
+        int n = output_group / out_channels;
+        int out_c = output_group % out_channels;
+
             for (int out_h = 0; out_h < output_height; out_h++) {
                 for (int out_w = 0; out_w < output_width; out_w++) {
                     double value = bias({out_c});
@@ -153,7 +155,7 @@ Tensor Conv2D::forward(const Tensor& input) {
                 }
             }
         }
-    }
+    );
 
     return output;
 }
