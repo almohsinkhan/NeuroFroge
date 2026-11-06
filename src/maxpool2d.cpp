@@ -97,12 +97,50 @@ Tensor MaxPool2D::forward(const Tensor& input) {
 }
 
 Tensor MaxPool2D::backward(
-    const Tensor&,
-    const Tensor&
+    const Tensor& input,
+    const Tensor& dZ
 ) {
-    throw std::logic_error(
-        "MaxPool2D::backward() is not implemented"
+    assert(input.ndim() == 4);
+    assert(dZ.ndim() == 4);
+
+    const std::vector<int>& input_shape = input.getShape();
+    const std::vector<int>& dZ_shape = dZ.getShape();
+
+    int batch_size = input_shape[0];
+    int channels = input_shape[1];
+    int input_height = input_shape[2];
+    int input_width = input_shape[3];
+
+    assert(input_height >= kernel_height);
+    assert(input_width >= kernel_width);
+
+    int output_height =
+        (input_height - kernel_height) / stride + 1;
+    int output_width =
+        (input_width - kernel_width) / stride + 1;
+
+    assert(
+        dZ_shape[0] == batch_size &&
+        dZ_shape[1] == channels &&
+        dZ_shape[2] == output_height &&
+        dZ_shape[3] == output_width
     );
+
+    if (max_positions.size() != dZ.size()) {
+        throw std::logic_error(
+            "MaxPool2D::backward() called before forward()"
+        );
+    }
+
+    Tensor dX(input_shape);
+
+    for (int i = 0; i < dZ.size(); i++) {
+        assert(max_positions[i] >= 0);
+        assert(max_positions[i] < dX.size());
+        dX.flat(max_positions[i]) += dZ.flat(i);
+    }
+
+    return dX;
 }
 
 void MaxPool2D::update(
