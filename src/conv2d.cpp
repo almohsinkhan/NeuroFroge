@@ -101,6 +101,9 @@ Tensor Conv2D::forward(const Tensor& input) {
         output_width
     });
 
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
     for (int n = 0; n < batch_size; n++) {
         for (int out_c = 0; out_c < out_channels; out_c++) {
             for (int out_h = 0; out_h < output_height; out_h++) {
