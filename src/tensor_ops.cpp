@@ -1,4 +1,5 @@
 #include "tensor_ops.h"
+#include "execution.h"
 
 #include <cassert>
 #include <vector>
@@ -69,6 +70,28 @@ Tensor matmul(const Tensor& A, const Tensor& B) {
 
     Tensor C({m, p});
 
+    if (static_cast<std::size_t>(m) * p >=
+        execution::parallelThreshold()) {
+        execution::parallelFor(
+            static_cast<std::size_t>(m) * p,
+            [&](std::size_t index) {
+                int i = index / p;
+                int j = index % p;
+                double result = 0.0;
+
+                for (int k = 0; k < n; k++) {
+                    result +=
+                        A.flat(i * n + k) *
+                        B.flat(k * p + j);
+                }
+
+                C.flat(index) = result;
+            }
+        );
+
+        return C;
+    }
+
     /*OLD: i → j → k
       NEW: i → k → j
       which is better for cache locality (contiguous in memory)*/
@@ -97,6 +120,53 @@ Tensor matmul_transpose_right(const Tensor& A, const Tensor& B) {
     assert(n == B.getShape()[1]);
 
     Tensor C({m, p});
+
+    if (static_cast<std::size_t>(m) * p >=
+        execution::parallelThreshold()) {
+        if (A.isContiguous() &&
+            B.isContiguous() &&
+            C.isContiguous()) {
+            const double* a = A.rowData();
+            const double* b = B.rowData();
+            double* c = C.rowData();
+
+            execution::parallelFor(
+                static_cast<std::size_t>(m) * p,
+                [&](std::size_t index) {
+                    int i = index / p;
+                    int j = index % p;
+                    double result = 0.0;
+
+                    for (int k = 0; k < n; k++) {
+                        result +=
+                            a[i * n + k] *
+                            b[j * n + k];
+                    }
+
+                    c[index] = result;
+                }
+            );
+        } else {
+            execution::parallelFor(
+                static_cast<std::size_t>(m) * p,
+                [&](std::size_t index) {
+                    int i = index / p;
+                    int j = index % p;
+                    double result = 0.0;
+
+                    for (int k = 0; k < n; k++) {
+                        result +=
+                            A.flat(i * n + k) *
+                            B.flat(j * n + k);
+                    }
+
+                    C.flat(index) = result;
+                }
+            );
+        }
+
+        return C;
+    }
 
     // Fast path: all tensors use contiguous row-major storage.
     if (A.isContiguous() && B.isContiguous() && C.isContiguous()) {
@@ -144,6 +214,53 @@ Tensor matmul_transpose_left(const Tensor& A, const Tensor& B) {
     assert(m == B.getShape()[0]);
 
     Tensor C({n, p});
+
+    if (static_cast<std::size_t>(n) * p >=
+        execution::parallelThreshold()) {
+        if (A.isContiguous() &&
+            B.isContiguous() &&
+            C.isContiguous()) {
+            const double* a = A.rowData();
+            const double* b = B.rowData();
+            double* c = C.rowData();
+
+            execution::parallelFor(
+                static_cast<std::size_t>(n) * p,
+                [&](std::size_t index) {
+                    int i = index / p;
+                    int j = index % p;
+                    double result = 0.0;
+
+                    for (int k = 0; k < m; k++) {
+                        result +=
+                            a[k * n + i] *
+                            b[k * p + j];
+                    }
+
+                    c[index] = result;
+                }
+            );
+        } else {
+            execution::parallelFor(
+                static_cast<std::size_t>(n) * p,
+                [&](std::size_t index) {
+                    int i = index / p;
+                    int j = index % p;
+                    double result = 0.0;
+
+                    for (int k = 0; k < m; k++) {
+                        result +=
+                            A.flat(k * n + i) *
+                            B.flat(k * p + j);
+                    }
+
+                    C.flat(index) = result;
+                }
+            );
+        }
+
+        return C;
+    }
 
     if (A.isContiguous() && B.isContiguous() && C.isContiguous()) {
         const double* a = A.rowData();
