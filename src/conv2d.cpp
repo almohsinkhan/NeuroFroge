@@ -251,3 +251,48 @@ Tensor Conv2D::backward(
 
     return dX;
 }
+
+void Conv2D::zero_grad() {
+    for (int i = 0; i < grad_weight.size(); i++) {
+        grad_weight.flat(i) = 0.0;
+    }
+
+    for (int i = 0; i < grad_bias.size(); i++) {
+        grad_bias.flat(i) = 0.0;
+    }
+}
+
+void Conv2D::update(
+    double learning_rate,
+    int batch_size
+) {
+    for (int i = 0; i < weight.size(); i++) {
+        weight.flat(i) -=
+            learning_rate *
+            grad_weight.flat(i) /
+            batch_size;
+    }
+
+    for (int i = 0; i < bias.size(); i++) {
+        bias.flat(i) -=
+            learning_rate *
+            grad_bias.flat(i) /
+            batch_size;
+    }
+}
+
+Tensor& Conv2D::getWeight() {
+    return weight;
+}
+
+Tensor& Conv2D::getBias() {
+    return bias;
+}
+
+Tensor& Conv2D::getGradWeight() {
+    return grad_weight;
+}
+
+Tensor& Conv2D::getGradBias() {
+    return grad_bias;
+}

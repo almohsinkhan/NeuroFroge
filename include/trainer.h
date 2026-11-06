@@ -2,6 +2,7 @@
 
 #include "sequential.h"
 #include "dataset.h"
+#include "dataloader.h"
 #include "loss.h"
 
 class Trainer {
@@ -9,11 +10,13 @@ class Trainer {
         Sequential& model;
         Dataset& dataset;
         Loss& loss;
+        BatchFormat format;
 
     public:
         Trainer(Sequential& model,
                 Dataset& dataset,
-                Loss& loss);
+                Loss& loss,
+                BatchFormat format = BatchFormat::MLP);
 
         void fit(int epochs,
                  int batch_size,

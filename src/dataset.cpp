@@ -1,13 +1,27 @@
 #include "dataset.h" 
+#include "idx_reader.h"
+
 #include <fstream>
 #include <stdexcept>
 #include <iostream>
 #include <sstream>
 #include <unordered_set>
 
+Dataset::Dataset()
+    : uses_idx(false),
+      image_height(28),
+      image_width(28),
+      image_channels(1)
+{
+}
 
 Dataset::Dataset(const std::string& images_path,
                  const std::string& labels_path) {
+    uses_idx = false;
+    image_height = 28;
+    image_width = 28;
+    image_channels = 1;
+
     // Load images and labels from the specified paths
     // This is a placeholder implementation; actual loading logic should be added here.
     
@@ -55,10 +69,51 @@ Dataset::Dataset(const std::string& images_path,
     }
 }
 
+Dataset Dataset::fromIDX(
+    const std::string& image_path,
+    const std::string& label_path
+) {
+    IDXReader reader(image_path, label_path);
+    Dataset dataset;
+
+    dataset.uses_idx = true;
+    dataset.image_height = static_cast<int>(reader.height());
+    dataset.image_width = static_cast<int>(reader.width());
+    dataset.image_channels = 1;
+    dataset.image_pixels = reader.images();
+
+    dataset.labels.reserve(reader.labels().size());
+    for (std::uint8_t label : reader.labels()) {
+        dataset.labels.push_back(static_cast<int>(label));
+    }
+
+    return dataset;
+}
+
 Tensor Dataset::getImage(int index) const {
-    if (index < 0 || index >= images.size()) {
+    if (index < 0 || index >= static_cast<int>(size())) {
         throw std::out_of_range("Index out of range");
     }
+
+    if (uses_idx) {
+        Tensor image({
+            image_channels,
+            image_height,
+            image_width
+        });
+
+        int image_size =
+            image_channels * image_height * image_width;
+        int offset = index * image_size;
+
+        for (int i = 0; i < image_size; i++) {
+            image.flat(i) =
+                static_cast<double>(image_pixels[offset + i]) / 255.0;
+        }
+
+        return image;
+    }
+
     return images[index];
 }
 
@@ -70,7 +125,9 @@ int Dataset::getLabel(int index) const {
 }
 
 size_t Dataset::size() const {
-    return images.size();
+    return uses_idx
+        ? labels.size()
+        : images.size();
 }
 
 int Dataset::numClasses() const {
@@ -83,8 +140,16 @@ int Dataset::numClasses() const {
 }
 
 std::vector<int> Dataset::sampleShape() const {
-    if (images.empty()) {
+    if (size() == 0) {
         throw std::runtime_error("Dataset is empty");
+    }
+
+    if (uses_idx) {
+        return {
+            image_channels,
+            image_height,
+            image_width
+        };
     }
 
     return images[0].getShape();

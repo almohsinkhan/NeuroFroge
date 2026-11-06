@@ -9,6 +9,11 @@ struct Batch {
     std::vector<int> labels;
 };
 
+enum class BatchFormat {
+    MLP,
+    CNN
+};
+
 class DataLoader {
 
 private:
@@ -19,6 +24,7 @@ private:
     int current_index;
 
     bool shuffle;
+    BatchFormat format;
 
     std::vector<int> indices;
 
@@ -29,7 +35,8 @@ public:
         Dataset& dataset,
         int batch_size,
         int max_samples,
-        bool shuffle = true
+        bool shuffle = true,
+        BatchFormat format = BatchFormat::MLP
     );
 
     bool hasNext() const;
