@@ -19,29 +19,38 @@ void setWeights(Conv2D& conv) {
 }
 
 int main() {
-    Tensor input({2, 1, 4, 4});
-    for (int i = 0; i < input.size(); i++) {
-        input.flat(i) = 0.2 * (i + 1);
+    Tensor input_base({1, 2, 4, 4});
+    for (int i = 0; i < input_base.size(); i++) {
+        input_base.flat(i) = 0.2 * (i + 1);
     }
+    Tensor input = input_base.broadcastTo({2, 2, 4, 4});
 
-    Tensor dZ({2, 2, 2, 2});
-    for (int i = 0; i < dZ.size(); i++) {
-        dZ.flat(i) = 0.05 * (i + 1);
+    Tensor dZ_base({1, 3, 3, 3});
+    for (int i = 0; i < dZ_base.size(); i++) {
+        dZ_base.flat(i) = 0.05 * (i + 1);
     }
+    Tensor dZ = dZ_base.broadcastTo({2, 3, 3, 3});
 
-    Conv2D serial_conv(1, 2, 3, 3);
-    Conv2D parallel_conv(1, 2, 3, 3);
+    Conv2D serial_conv(2, 3, 2, 2);
+    Conv2D parallel_conv(2, 3, 2, 2);
     setWeights(serial_conv);
     setWeights(parallel_conv);
 
     execution::setParallelThreshold(1000000);
-    serial_conv.backward(input, dZ);
+    Tensor serial_dX = serial_conv.backward(input, dZ);
     Tensor serial_grad_bias = serial_conv.getGradBias();
+    Tensor serial_grad_weight = serial_conv.getGradWeight();
 
     execution::setParallelThreshold(1);
-    parallel_conv.backward(input, dZ);
+    Tensor parallel_dX = parallel_conv.backward(input, dZ);
+    assertClose(serial_dX, parallel_dX);
     assertClose(serial_grad_bias, parallel_conv.getGradBias());
+    assertClose(serial_grad_weight, parallel_conv.getGradWeight());
 
+    std::vector<double> first_grad_weight;
+    for (int i = 0; i < parallel_conv.getGradWeight().size(); i++) {
+        first_grad_weight.push_back(parallel_conv.getGradWeight().flat(i));
+    }
     std::vector<double> first_grad_bias;
     for (int i = 0; i < parallel_conv.getGradBias().size(); i++) {
         first_grad_bias.push_back(parallel_conv.getGradBias().flat(i));
@@ -56,6 +65,14 @@ int main() {
             ) < 1e-12
         );
     }
+    for (int i = 0; i < static_cast<int>(first_grad_weight.size()); i++) {
+        assert(
+            std::abs(
+                parallel_conv.getGradWeight().flat(i) -
+                2.0 * first_grad_weight[i]
+            ) < 1e-12
+        );
+    }
 
     parallel_conv.zero_grad();
     parallel_conv.backward(input, dZ);
@@ -64,6 +81,14 @@ int main() {
             std::abs(
                 first_grad_bias[i] -
                 parallel_conv.getGradBias().flat(i)
+            ) < 1e-12
+        );
+    }
+    for (int i = 0; i < static_cast<int>(first_grad_weight.size()); i++) {
+        assert(
+            std::abs(
+                first_grad_weight[i] -
+                parallel_conv.getGradWeight().flat(i)
             ) < 1e-12
         );
     }

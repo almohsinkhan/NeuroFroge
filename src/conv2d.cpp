@@ -210,6 +210,53 @@ Tensor Conv2D::backward(
         }
     );
 
+    execution::parallelFor(
+        static_cast<std::size_t>(grad_weight.size()),
+        [&](std::size_t weight_index) {
+            int remaining = static_cast<int>(weight_index);
+            int kernel_w = remaining % kernel_width;
+            remaining /= kernel_width;
+            int kernel_h = remaining % kernel_height;
+            remaining /= kernel_height;
+            int in_c = remaining % in_channels;
+            int out_c = remaining / in_channels;
+
+            double accumulated_gradient = 0.0;
+
+            for (int n = 0; n < batch_size; n++) {
+                for (int out_h = 0; out_h < output_height; out_h++) {
+                    for (int out_w = 0; out_w < output_width; out_w++) {
+                        int input_h =
+                            out_h * stride + kernel_h - padding;
+                        int input_w =
+                            out_w * stride + kernel_w - padding;
+
+                        if (input_h >= 0 &&
+                            input_h < input_height &&
+                            input_w >= 0 &&
+                            input_w < input_width) {
+                            accumulated_gradient +=
+                                input({
+                                    n,
+                                    in_c,
+                                    input_h,
+                                    input_w
+                                }) *
+                                dZ({n, out_c, out_h, out_w});
+                        }
+                    }
+                }
+            }
+
+            grad_weight({
+                out_c,
+                in_c,
+                kernel_h,
+                kernel_w
+            }) += accumulated_gradient;
+        }
+    );
+
     for (int n = 0; n < batch_size; n++) {
         for (int out_c = 0; out_c < out_channels; out_c++) {
             for (int out_h = 0; out_h < output_height; out_h++) {
@@ -235,20 +282,6 @@ Tensor Conv2D::backward(
                                 for (int in_c = 0;
                                      in_c < in_channels;
                                      in_c++) {
-                                    grad_weight({
-                                        out_c,
-                                        in_c,
-                                        kernel_h,
-                                        kernel_w
-                                    }) +=
-                                        input({
-                                            n,
-                                            in_c,
-                                            input_h,
-                                            input_w
-                                        }) *
-                                        upstream_gradient;
-
                                     dX({
                                         n,
                                         in_c,
