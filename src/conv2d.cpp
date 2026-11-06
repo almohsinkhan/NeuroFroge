@@ -191,14 +191,31 @@ Tensor Conv2D::backward(
 
     Tensor dX(input_shape);
 
+    execution::parallelFor(
+        static_cast<std::size_t>(out_channels),
+        [&](std::size_t out_channel_index) {
+            int out_c = static_cast<int>(out_channel_index);
+            double accumulated_gradient = 0.0;
+
+            for (int n = 0; n < batch_size; n++) {
+                for (int out_h = 0; out_h < output_height; out_h++) {
+                    for (int out_w = 0; out_w < output_width; out_w++) {
+                        accumulated_gradient +=
+                            dZ({n, out_c, out_h, out_w});
+                    }
+                }
+            }
+
+            grad_bias({out_c}) += accumulated_gradient;
+        }
+    );
+
     for (int n = 0; n < batch_size; n++) {
         for (int out_c = 0; out_c < out_channels; out_c++) {
             for (int out_h = 0; out_h < output_height; out_h++) {
                 for (int out_w = 0; out_w < output_width; out_w++) {
                     double upstream_gradient =
                         dZ({n, out_c, out_h, out_w});
-
-                    grad_bias({out_c}) += upstream_gradient;
 
                     for (int kernel_h = 0;
                          kernel_h < kernel_height;
