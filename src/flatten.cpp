@@ -1,4 +1,5 @@
 #include "flatten.h"
+#include "execution.h"
 
 #include <cassert>
 #include <stdexcept>
@@ -16,12 +17,16 @@ Tensor Flatten::forward(const Tensor& input) {
 
     Tensor output({features, batch_size});
 
-    for (int n = 0; n < batch_size; n++) {
-        for (int feature = 0; feature < features; feature++) {
+    execution::parallelFor(
+        static_cast<std::size_t>(input.size()),
+        [&](std::size_t index) {
+            int n = index / features;
+            int feature = index % features;
+
             output.flat(feature * batch_size + n) =
-                input.flat(n * features + feature);
+                input.flat(index);
         }
-    }
+    );
 
     return output;
 }
@@ -48,12 +53,16 @@ Tensor Flatten::backward(
 
     Tensor dX(original_input_shape);
 
-    for (int n = 0; n < batch_size; n++) {
-        for (int feature = 0; feature < features; feature++) {
+    execution::parallelFor(
+        static_cast<std::size_t>(dZ.size()),
+        [&](std::size_t index) {
+            int feature = index / batch_size;
+            int n = index % batch_size;
+
             dX.flat(n * features + feature) =
-                dZ.flat(feature * batch_size + n);
+                dZ.flat(index);
         }
-    }
+    );
 
     return dX;
 }
