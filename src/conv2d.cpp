@@ -5,6 +5,11 @@
 #include <cmath>
 #include <random>
 #include <stdexcept>
+#include <vector>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 Conv2D::Conv2D(
     int in_channels,
@@ -257,44 +262,123 @@ Tensor Conv2D::backward(
         }
     );
 
-    for (int n = 0; n < batch_size; n++) {
-        for (int out_c = 0; out_c < out_channels; out_c++) {
-            for (int out_h = 0; out_h < output_height; out_h++) {
-                for (int out_w = 0; out_w < output_width; out_w++) {
-                    double upstream_gradient =
-                        dZ({n, out_c, out_h, out_w});
+    const std::size_t output_work =
+        static_cast<std::size_t>(batch_size) *
+        out_channels *
+        output_height *
+        output_width;
 
-                    for (int kernel_h = 0;
-                         kernel_h < kernel_height;
-                         kernel_h++) {
-                        for (int kernel_w = 0;
-                             kernel_w < kernel_width;
-                             kernel_w++) {
-                            int input_h =
-                                out_h * stride + kernel_h - padding;
-                            int input_w =
-                                out_w * stride + kernel_w - padding;
+#ifdef _OPENMP
+    if (output_work >= execution::parallelThreshold()) {
+        const int worker_capacity = omp_get_max_threads();
+        std::vector<Tensor> worker_gradients;
+        worker_gradients.reserve(worker_capacity);
 
-                            if (input_h >= 0 &&
-                                input_h < input_height &&
-                                input_w >= 0 &&
-                                input_w < input_width) {
-                                for (int in_c = 0;
-                                     in_c < in_channels;
-                                     in_c++) {
-                                    dX({
-                                        n,
+        for (int worker = 0; worker < worker_capacity; worker++) {
+            worker_gradients.emplace_back(input_shape);
+        }
+
+        execution::parallelFor(
+            output_work,
+            [&](std::size_t output_index) {
+                int remaining = static_cast<int>(output_index);
+                int out_w = remaining % output_width;
+                remaining /= output_width;
+                int out_h = remaining % output_height;
+                remaining /= output_height;
+                int out_c = remaining % out_channels;
+                int n = remaining / out_channels;
+
+                double upstream_gradient =
+                    dZ({n, out_c, out_h, out_w});
+                Tensor& worker_gradient =
+                    worker_gradients[omp_get_thread_num()];
+
+                for (int kernel_h = 0;
+                     kernel_h < kernel_height;
+                     kernel_h++) {
+                    for (int kernel_w = 0;
+                         kernel_w < kernel_width;
+                         kernel_w++) {
+                        int input_h =
+                            out_h * stride + kernel_h - padding;
+                        int input_w =
+                            out_w * stride + kernel_w - padding;
+
+                        if (input_h >= 0 &&
+                            input_h < input_height &&
+                            input_w >= 0 &&
+                            input_w < input_width) {
+                            for (int in_c = 0;
+                                 in_c < in_channels;
+                                 in_c++) {
+                                worker_gradient({
+                                    n,
+                                    in_c,
+                                    input_h,
+                                    input_w
+                                }) +=
+                                    upstream_gradient *
+                                    weight({
+                                        out_c,
                                         in_c,
-                                        input_h,
-                                        input_w
-                                    }) +=
-                                        upstream_gradient *
-                                        weight({
-                                            out_c,
+                                        kernel_h,
+                                        kernel_w
+                                    });
+                            }
+                        }
+                    }
+                }
+            }
+        );
+
+        for (int worker = 0; worker < worker_capacity; worker++) {
+            for (int i = 0; i < dX.size(); i++) {
+                dX.flat(i) += worker_gradients[worker].flat(i);
+            }
+        }
+    } else
+#endif
+    {
+        for (int n = 0; n < batch_size; n++) {
+            for (int out_c = 0; out_c < out_channels; out_c++) {
+                for (int out_h = 0; out_h < output_height; out_h++) {
+                    for (int out_w = 0; out_w < output_width; out_w++) {
+                        double upstream_gradient =
+                            dZ({n, out_c, out_h, out_w});
+
+                        for (int kernel_h = 0;
+                             kernel_h < kernel_height;
+                             kernel_h++) {
+                            for (int kernel_w = 0;
+                                 kernel_w < kernel_width;
+                                 kernel_w++) {
+                                int input_h =
+                                    out_h * stride + kernel_h - padding;
+                                int input_w =
+                                    out_w * stride + kernel_w - padding;
+
+                                if (input_h >= 0 &&
+                                    input_h < input_height &&
+                                    input_w >= 0 &&
+                                    input_w < input_width) {
+                                    for (int in_c = 0;
+                                         in_c < in_channels;
+                                         in_c++) {
+                                        dX({
+                                            n,
                                             in_c,
-                                            kernel_h,
-                                            kernel_w
-                                        });
+                                            input_h,
+                                            input_w
+                                        }) +=
+                                            upstream_gradient *
+                                            weight({
+                                                out_c,
+                                                in_c,
+                                                kernel_h,
+                                                kernel_w
+                                            });
+                                    }
                                 }
                             }
                         }

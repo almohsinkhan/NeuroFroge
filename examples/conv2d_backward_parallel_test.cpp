@@ -92,4 +92,37 @@ int main() {
             ) < 1e-12
         );
     }
+
+    Tensor strided_input({2, 2, 5, 6});
+    for (int i = 0; i < strided_input.size(); i++) {
+        strided_input.flat(i) = 0.03 * (i + 1);
+    }
+
+    Tensor strided_dZ_base({1, 3, 3, 4});
+    for (int i = 0; i < strided_dZ_base.size(); i++) {
+        strided_dZ_base.flat(i) = 0.07 * (i + 1);
+    }
+    Tensor strided_dZ = strided_dZ_base.broadcastTo({2, 3, 3, 4});
+
+    Conv2D strided_serial(2, 3, 3, 2, 2, 1);
+    Conv2D strided_parallel(2, 3, 3, 2, 2, 1);
+    setWeights(strided_serial);
+    setWeights(strided_parallel);
+
+    execution::setParallelThreshold(1000000);
+    Tensor strided_serial_dX =
+        strided_serial.backward(strided_input, strided_dZ);
+
+    execution::setParallelThreshold(1);
+    Tensor strided_parallel_dX =
+        strided_parallel.backward(strided_input, strided_dZ);
+    assertClose(strided_serial_dX, strided_parallel_dX);
+    assertClose(
+        strided_serial.getGradWeight(),
+        strided_parallel.getGradWeight()
+    );
+    assertClose(
+        strided_serial.getGradBias(),
+        strided_parallel.getGradBias()
+    );
 }
