@@ -311,6 +311,24 @@ Calling `reset()` starts the next epoch and advances the same generator, so
 identically configured loaders produce the same sequence of shuffled epochs.
 Set `shuffle` to `false` to preserve dataset order.
 
+Horizontal image flipping is disabled by default. The seeded constructor can
+enable it with a probability between `0.0` and `1.0`:
+
+```cpp
+DataLoader augmented_loader(
+    dataset,
+    batch_size,
+    max_samples,
+    true,
+    BatchFormat::CNN,
+    12345,
+    0.5
+);
+```
+
+Flipping supports `[height, width]` and `[channels, height, width]` samples,
+preserves labels, and uses the loader seed for reproducible augmentation.
+
 ## CNN example
 
 The complete CNN example is in

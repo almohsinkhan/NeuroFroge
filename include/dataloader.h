@@ -27,6 +27,7 @@ private:
 
     bool shuffle;
     BatchFormat format;
+    double horizontal_flip_probability;
 
     std::vector<int> indices;
     std::mt19937 generator;
@@ -48,7 +49,8 @@ public:
         int max_samples,
         bool shuffle,
         BatchFormat format,
-        std::uint32_t seed
+        std::uint32_t seed,
+        double horizontal_flip_probability = 0.0
     );
 
     bool hasNext() const;
