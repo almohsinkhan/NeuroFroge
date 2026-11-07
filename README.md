@@ -292,6 +292,25 @@ The default remains `BatchFormat::MLP` for compatibility with the original
 training examples. CNN mode accepts 28 by 28 samples and produces NCHW
 batches for Conv2D.
 
+DataLoader shuffles sample indices by default and keeps each sample paired with
+its label. The existing constructor uses a nondeterministic seed. For
+reproducible shuffling, use the overload with an explicit seed:
+
+```cpp
+DataLoader loader(
+    dataset,
+    batch_size,
+    max_samples,
+    true,
+    BatchFormat::MLP,
+    12345
+);
+```
+
+Calling `reset()` starts the next epoch and advances the same generator, so
+identically configured loaders produce the same sequence of shuffled epochs.
+Set `shuffle` to `false` to preserve dataset order.
+
 ## CNN example
 
 The complete CNN example is in

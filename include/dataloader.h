@@ -2,6 +2,8 @@
 
 #include "dataset.h"
 #include "tensor.h"
+#include <cstdint>
+#include <random>
 #include <vector>
 
 struct Batch {
@@ -27,6 +29,7 @@ private:
     BatchFormat format;
 
     std::vector<int> indices;
+    std::mt19937 generator;
 
     void initializeIndices();
 
@@ -37,6 +40,15 @@ public:
         int max_samples,
         bool shuffle = true,
         BatchFormat format = BatchFormat::MLP
+    );
+
+    DataLoader(
+        Dataset& dataset,
+        int batch_size,
+        int max_samples,
+        bool shuffle,
+        BatchFormat format,
+        std::uint32_t seed
     );
 
     bool hasNext() const;

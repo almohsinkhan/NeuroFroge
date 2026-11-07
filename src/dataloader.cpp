@@ -12,12 +12,33 @@ DataLoader::DataLoader(
     bool shuffle,
     BatchFormat format
 )
+    : DataLoader(
+          dataset,
+          batch_size,
+          max_samples,
+          shuffle,
+          format,
+          std::random_device{}()
+      )
+{
+}
+
+
+DataLoader::DataLoader(
+    Dataset& dataset,
+    int batch_size,
+    int max_samples,
+    bool shuffle,
+    BatchFormat format,
+    std::uint32_t seed
+)
     : dataset(dataset),
       batch_size(batch_size),
       max_samples(max_samples),
       current_index(0),
       shuffle(shuffle),
-      format(format)
+      format(format),
+      generator(seed)
 {
     if (batch_size <= 0) {
         throw std::invalid_argument(
@@ -34,15 +55,11 @@ DataLoader::DataLoader(
 
     initializeIndices();
 
-    // Shuffle the first epoch
     if (shuffle) {
-        std::random_device rd;
-        std::mt19937 g(rd());
-
         std::shuffle(
             indices.begin(),
             indices.end(),
-            g
+            generator
         );
     }
 }
@@ -172,14 +189,10 @@ void DataLoader::reset() {
     current_index = 0;
 
     if (shuffle) {
-
-        std::random_device rd;
-        std::mt19937 g(rd());
-
         std::shuffle(
             indices.begin(),
             indices.end(),
-            g
+            generator
         );
     }
 }
