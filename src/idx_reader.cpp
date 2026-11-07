@@ -84,9 +84,9 @@ IDXReader::IDXReader(
         );
     }
 
-    if (declared_height != 28 || declared_width != 28) {
+    if (declared_height == 0 || declared_width == 0) {
         throw std::runtime_error(
-            "IDX image dimensions must be 28x28: " + image_path
+            "IDX image dimensions must be positive: " + image_path
         );
     }
 
@@ -102,14 +102,27 @@ IDXReader::IDXReader(
         );
     }
 
+    const std::size_t image_data_size =
+        static_cast<std::size_t>(declared_image_count) *
+        pixels_per_image;
+
+    if (image_data_size >
+        static_cast<std::size_t>(
+            std::numeric_limits<std::streamsize>::max()
+        )) {
+        throw std::runtime_error(
+            "IDX image data is too large to read: " + image_path
+        );
+    }
+
     image_count = declared_image_count;
     image_height = declared_height;
     image_width = declared_width;
 
-    image_data.resize(image_count * pixels_per_image);
+    image_data.resize(image_data_size);
     if (!image_file.read(
             reinterpret_cast<char*>(image_data.data()),
-            static_cast<std::streamsize>(image_data.size())
+            static_cast<std::streamsize>(image_data_size)
         )) {
         throw std::runtime_error(
             "Incomplete IDX image data in file: " + image_path
