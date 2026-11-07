@@ -2,6 +2,7 @@
 
 #include <string>
 #include <cstdint>
+#include <utility>
 #include <vector>
 #include "tensor.h"
 
@@ -52,5 +53,10 @@ public:
     size_t size() const;
 
     std::vector<int> sampleShape() const;
+
+    std::pair<Dataset, Dataset> splitCsv(
+        double validation_ratio,
+        std::uint32_t seed
+    ) const;
 
 };

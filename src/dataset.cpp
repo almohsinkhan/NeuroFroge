@@ -2,7 +2,9 @@
 #include "idx_reader.h"
 
 #include <fstream>
+#include <algorithm>
 #include <cmath>
+#include <random>
 #include <stdexcept>
 #include <iostream>
 #include <limits>
@@ -304,4 +306,83 @@ std::vector<int> Dataset::sampleShape() const {
     }
 
     return images[0].getShape();
+}
+
+std::pair<Dataset, Dataset> Dataset::splitCsv(
+    double validation_ratio,
+    std::uint32_t seed
+) const {
+    if (uses_idx) {
+        throw std::invalid_argument(
+            "CSV splitting requires a CSV-backed Dataset"
+        );
+    }
+
+    if (!std::isfinite(validation_ratio) ||
+        validation_ratio <= 0.0 ||
+        validation_ratio >= 1.0) {
+        throw std::invalid_argument(
+            "Validation ratio must be greater than 0 and less than 1"
+        );
+    }
+
+    if (images.empty()) {
+        throw std::invalid_argument(
+            "Cannot split an empty Dataset"
+        );
+    }
+
+    const std::size_t validation_count = static_cast<std::size_t>(
+        std::floor(images.size() * validation_ratio)
+    );
+    if (validation_count == 0 ||
+        validation_count >= images.size()) {
+        throw std::invalid_argument(
+            "Validation ratio produces an empty train or validation split"
+        );
+    }
+
+    std::vector<std::size_t> indices(images.size());
+    for (std::size_t index = 0; index < indices.size(); index++) {
+        indices[index] = index;
+    }
+
+    std::mt19937 generator(seed);
+    std::shuffle(indices.begin(), indices.end(), generator);
+
+    Dataset train;
+    Dataset validation;
+    train.uses_idx = false;
+    validation.uses_idx = false;
+    train.image_height = image_height;
+    validation.image_height = image_height;
+    train.image_width = image_width;
+    validation.image_width = image_width;
+    train.image_channels = image_channels;
+    validation.image_channels = image_channels;
+    train.normalization = normalization;
+    validation.normalization = normalization;
+    train.normalization_mean = normalization_mean;
+    validation.normalization_mean = normalization_mean;
+    train.normalization_stddev = normalization_stddev;
+    validation.normalization_stddev = normalization_stddev;
+
+    const std::size_t train_count =
+        images.size() - validation_count;
+    train.images.reserve(train_count);
+    train.labels.reserve(train_count);
+    validation.images.reserve(validation_count);
+    validation.labels.reserve(validation_count);
+
+    for (std::size_t position = 0;
+         position < indices.size();
+         position++) {
+        Dataset& destination =
+            position < train_count ? train : validation;
+        std::size_t source_index = indices[position];
+        destination.images.push_back(images[source_index]);
+        destination.labels.push_back(labels[source_index]);
+    }
+
+    return {std::move(train), std::move(validation)};
 }
