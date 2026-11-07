@@ -21,6 +21,12 @@ public:
     Dataset(const std::string& imagePath,
             const std::string& labelPath);
 
+    Dataset(
+        const std::string& imagePath,
+        const std::string& labelPath,
+        const std::vector<int>& sample_shape
+    );
+
     static Dataset fromIDX(
         const std::string& imagePath,
         const std::string& labelPath

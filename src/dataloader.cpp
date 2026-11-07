@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <random>
-#include <iostream>
 #include <stdexcept>
 
 
@@ -80,18 +79,43 @@ Batch DataLoader::next() {
     int sample_size = 1;
 
     for (int dim : image_shape) {
+        if (dim <= 0) {
+            throw std::invalid_argument(
+                "Dataset sample dimensions must be positive"
+            );
+        }
         sample_size *= dim;
     }
 
-    if (sample_size != 784) {
-        throw std::invalid_argument(
-            "DataLoader expects 784-pixel samples"
-        );
+    int channels = 0;
+    int height = 0;
+    int width = 0;
+
+    if (format == BatchFormat::CNN) {
+        if (image_shape.size() == 2) {
+            channels = 1;
+            height = image_shape[0];
+            width = image_shape[1];
+        } else if (image_shape.size() == 3) {
+            channels = image_shape[0];
+            height = image_shape[1];
+            width = image_shape[2];
+        } else {
+            throw std::invalid_argument(
+                "DataLoader CNN format requires [height, width] "
+                "or [channels, height, width] samples"
+            );
+        }
     }
 
     Tensor images = format == BatchFormat::MLP
         ? Tensor({sample_size, current_batch_size})
-        : Tensor({current_batch_size, 1, 28, 28});
+        : Tensor({
+            current_batch_size,
+            channels,
+            height,
+            width
+        });
 
     std::vector<int> labels;
 
@@ -105,6 +129,11 @@ Batch DataLoader::next() {
         Tensor image =
             dataset.getImage(dataset_index);
 
+        if (image.getShape() != image_shape) {
+            throw std::invalid_argument(
+                "Dataset samples must have consistent shapes"
+            );
+        }
 
         if (format == BatchFormat::MLP) {
             for (int i = 0; i < sample_size; i++) {
@@ -112,27 +141,17 @@ Batch DataLoader::next() {
                     i * current_batch_size + j
                 ) = image.flat(i);
             }
-        } else if (image.ndim() == 2) {
-            for (int h = 0; h < 28; h++) {
-                for (int w = 0; w < 28; w++) {
-                    images({j, 0, h, w}) =
-                        image({h, w});
-                }
-            }
-        } else if (image.ndim() == 3 &&
-                   image.getShape()[0] == 1 &&
-                   image.getShape()[1] == 28 &&
-                   image.getShape()[2] == 28) {
-            for (int h = 0; h < 28; h++) {
-                for (int w = 0; w < 28; w++) {
-                    images({j, 0, h, w}) =
-                        image({0, h, w});
-                }
-            }
         } else {
-            throw std::invalid_argument(
-                "DataLoader CNN format requires 28x28 or 1x28x28 samples"
-            );
+            for (int c = 0; c < channels; c++) {
+                for (int h = 0; h < height; h++) {
+                    for (int w = 0; w < width; w++) {
+                        images({j, c, h, w}) =
+                            image.ndim() == 2
+                                ? image({h, w})
+                                : image({c, h, w});
+                    }
+                }
+            }
         }
 
 

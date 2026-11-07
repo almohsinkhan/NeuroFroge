@@ -4,6 +4,7 @@
 #include <fstream>
 #include <stdexcept>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <unordered_set>
 
@@ -16,15 +17,46 @@ Dataset::Dataset()
 }
 
 Dataset::Dataset(const std::string& images_path,
-                 const std::string& labels_path) {
+                 const std::string& labels_path)
+    : Dataset(images_path, labels_path, {28, 28}) {}
+
+Dataset::Dataset(
+    const std::string& images_path,
+    const std::string& labels_path,
+    const std::vector<int>& sample_shape
+) {
     uses_idx = false;
     image_height = 28;
     image_width = 28;
     image_channels = 1;
 
-    // Load images and labels from the specified paths
-    // This is a placeholder implementation; actual loading logic should be added here.
-    
+    if (sample_shape.empty()) {
+        throw std::invalid_argument(
+            "CSV sample shape must not be empty"
+        );
+    }
+
+    std::size_t sample_size = 1;
+    for (int dimension : sample_shape) {
+        if (dimension <= 0 ||
+            sample_size >
+                std::numeric_limits<std::size_t>::max() /
+                static_cast<std::size_t>(dimension)) {
+            throw std::invalid_argument(
+                "CSV sample shape must contain valid dimensions"
+            );
+        }
+        sample_size *= static_cast<std::size_t>(dimension);
+    }
+
+    if (sample_size > static_cast<std::size_t>(
+            std::numeric_limits<int>::max()
+        )) {
+        throw std::invalid_argument(
+            "CSV sample shape is too large"
+        );
+    }
+
     std::ifstream images_file(images_path);
     std::ifstream labels_file(labels_path);
 
@@ -38,22 +70,25 @@ Dataset::Dataset(const std::string& images_path,
 
     std::string line;
     while (std::getline(images_file, line)) {
-        // Assuming each line in the images file represents a serialized Tensor
         std::istringstream iss(line);
         std::string value;
 
-        Tensor image({28, 28});
+        Tensor image(sample_shape);
 
         int i = 0;
         while (std::getline(iss, value, ',')) {
             if (i >= image.size()) {
-                throw std::runtime_error("Image data exceeds expected size");
+                throw std::runtime_error(
+                    "CSV row contains more values than its sample shape"
+                );
             }
             image.flat(i) = std::stod(value);
             i++;
         }
         if (i < image.size()) {
-            throw std::runtime_error("Image data is incomplete");
+            throw std::runtime_error(
+                "CSV row contains fewer values than its sample shape"
+            );
         }
 
         images.push_back(image);
