@@ -17,6 +17,7 @@
 
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <iomanip>
 #include <iostream>
 #include <limits>
@@ -24,6 +25,21 @@
 #include <vector>
 
 namespace {
+
+Dataset loadDataset(
+    const std::string& image_path,
+    const std::string& label_path
+) {
+    try {
+        return Dataset::fromIDX(image_path, label_path);
+    } catch (const std::exception& error) {
+        std::cerr
+            << "Failed to load benchmark dataset: "
+            << error.what()
+            << '\n';
+        std::exit(1);
+    }
+}
 
 struct LayerParameters {
     std::vector<double> weight;
@@ -287,16 +303,33 @@ void printResult(
 
 }
 
-int main() {
-    const std::string data_root = "data/FashionMNIST/raw/";
-    Dataset train_dataset = Dataset::fromIDX(
-        data_root + "train-images-idx3-ubyte",
-        data_root + "train-labels-idx1-ubyte"
-    );
-    Dataset test_dataset = Dataset::fromIDX(
-        data_root + "t10k-images-idx3-ubyte",
-        data_root + "t10k-labels-idx1-ubyte"
-    );
+int main(int argc, char** argv) {
+    if (argc != 1 && argc != 5) {
+        std::cerr
+            << "Usage: " << argv[0]
+            << " [train_images train_labels test_images test_labels]\n";
+        return 2;
+    }
+
+    const std::string train_images =
+        argc == 5
+            ? argv[1]
+            : "data/FashionMNIST/raw/train-images-idx3-ubyte";
+    const std::string train_labels =
+        argc == 5
+            ? argv[2]
+            : "data/FashionMNIST/raw/train-labels-idx1-ubyte";
+    const std::string test_images =
+        argc == 5
+            ? argv[3]
+            : "data/FashionMNIST/raw/t10k-images-idx3-ubyte";
+    const std::string test_labels =
+        argc == 5
+            ? argv[4]
+            : "data/FashionMNIST/raw/t10k-labels-idx1-ubyte";
+
+    Dataset train_dataset = loadDataset(train_images, train_labels);
+    Dataset test_dataset = loadDataset(test_images, test_labels);
 
     const int epochs = 1;
     const int batch_size = 64;

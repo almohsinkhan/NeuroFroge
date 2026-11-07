@@ -1,5 +1,6 @@
 #include <iostream>
 #include <algorithm>
+#include <cstdlib>
 
 #include "dataset.h"
 #include "linear.h"
@@ -27,19 +28,45 @@ int argmax(const Tensor &output)
     return index;
 }
 
-int main()
+Dataset loadDataset(
+    const std::string& image_path,
+    const std::string& label_path
+)
 {
+    try {
+        return Dataset(image_path, label_path);
+    } catch (const std::exception& error) {
+        std::cerr
+            << "Failed to load dataset: "
+            << error.what()
+            << '\n';
+        std::exit(1);
+    }
+}
 
-    Dataset dataset(
-        "data/images.csv",
-        "data/labels.csv");
+int main(int argc, char** argv)
+{
+    if (argc != 1 && argc != 3) {
+        std::cerr
+            << "Usage: " << argv[0]
+            << " [images.csv labels.csv]\n";
+        return 2;
+    }
+
+    const std::string image_path =
+        argc == 3 ? argv[1] : "data/images.csv";
+    const std::string label_path =
+        argc == 3 ? argv[2] : "data/labels.csv";
+
+    Dataset dataset = loadDataset(image_path, label_path);
 
     // number of classes in the dataset
     int num_classes = dataset.numClasses();
 
     Sequential model;
 
-    model.add<Linear>(784, 128);
+    const int feature_count = dataset.getImage(0).size();
+    model.add<Linear>(feature_count, 128);
     model.add<ReLU>();
     model.add<Linear>(128, num_classes);
 
@@ -50,7 +77,7 @@ int main()
 
     // Test Sequential forward pass
     Tensor image = dataset.getImage(0);
-    Tensor x({784, 1});
+    Tensor x({feature_count, 1});
 
     for (int i = 0; i < image.size(); i++) {
         x.flat(i) = image.flat(i);
@@ -63,7 +90,8 @@ int main()
     double learning_rate = 0.01;
     int epochs = 5;
     int batch_size = 32;
-    int train_size = 800;
+    int train_size =
+        std::min(800, static_cast<int>(dataset.size()) - 1);
     int test_size = dataset.size() - train_size;
 
     trainer.fit(epochs, batch_size, learning_rate, train_size);
@@ -76,7 +104,7 @@ int main()
         int label = dataset.getLabel(i);
         
         Tensor image = dataset.getImage(i);
-        Tensor x({784, 1});
+        Tensor x({feature_count, 1});
 
         for (int j = 0; j < image.size(); j++) {
             x.flat(j) = image.flat(j);

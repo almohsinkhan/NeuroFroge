@@ -10,9 +10,25 @@
 #include "softmax.h"
 #include "trainer.h"
 
+#include <cstdlib>
 #include <iostream>
 
 namespace {
+
+Dataset loadDataset(
+    const std::string& image_path,
+    const std::string& label_path
+) {
+    try {
+        return Dataset::fromIDX(image_path, label_path);
+    } catch (const std::exception& error) {
+        std::cerr
+            << "Failed to load dataset: "
+            << error.what()
+            << '\n';
+        std::exit(1);
+    }
+}
 
 int argmax(
     const Tensor& probabilities,
@@ -39,11 +55,24 @@ int argmax(
 
 }
 
-int main() {
-    Dataset dataset = Dataset::fromIDX(
-        "data/FashionMNIST/raw/train-images-idx3-ubyte",
-        "data/FashionMNIST/raw/train-labels-idx1-ubyte"
-    );
+int main(int argc, char** argv) {
+    if (argc != 1 && argc != 3) {
+        std::cerr
+            << "Usage: " << argv[0]
+            << " [images.idx labels.idx]\n";
+        return 2;
+    }
+
+    const std::string image_path =
+        argc == 3
+            ? argv[1]
+            : "data/FashionMNIST/raw/train-images-idx3-ubyte";
+    const std::string label_path =
+        argc == 3
+            ? argv[2]
+            : "data/FashionMNIST/raw/train-labels-idx1-ubyte";
+
+    Dataset dataset = loadDataset(image_path, label_path);
 
     Sequential model;
     model.add<Conv2D>(1, 8, 3, 3);
