@@ -32,6 +32,9 @@ private:
     int crop_width;
     std::vector<double> channel_means;
     std::vector<double> channel_stddevs;
+    double brightness_probability;
+    double brightness_min_factor;
+    double brightness_max_factor;
 
     std::vector<int> indices;
     std::mt19937 generator;
@@ -63,7 +66,10 @@ public:
         int crop_height = 0,
         int crop_width = 0,
         const std::vector<double>& channel_means = {},
-        const std::vector<double>& channel_stddevs = {}
+        const std::vector<double>& channel_stddevs = {},
+        double brightness_probability = 0.0,
+        double brightness_min_factor = 1.0,
+        double brightness_max_factor = 1.0
     );
 
     bool hasNext() const;

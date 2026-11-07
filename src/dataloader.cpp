@@ -48,7 +48,10 @@ DataLoader::DataLoader(
     int crop_height,
     int crop_width,
     const std::vector<double>& channel_means,
-    const std::vector<double>& channel_stddevs
+    const std::vector<double>& channel_stddevs,
+    double brightness_probability,
+    double brightness_min_factor,
+    double brightness_max_factor
 )
     : dataset(dataset),
       batch_size(batch_size),
@@ -61,7 +64,10 @@ DataLoader::DataLoader(
       crop_height(crop_height),
       crop_width(crop_width),
       channel_means(channel_means),
-      channel_stddevs(channel_stddevs)
+      channel_stddevs(channel_stddevs),
+      brightness_probability(brightness_probability),
+      brightness_min_factor(brightness_min_factor),
+      brightness_max_factor(brightness_max_factor)
 {
     if (batch_size <= 0) {
         throw std::invalid_argument(
@@ -81,6 +87,24 @@ DataLoader::DataLoader(
         horizontal_flip_probability > 1.0) {
         throw std::invalid_argument(
             "DataLoader horizontal flip probability must be between 0 and 1"
+        );
+    }
+
+    if (!std::isfinite(brightness_probability) ||
+        brightness_probability < 0.0 ||
+        brightness_probability > 1.0) {
+        throw std::invalid_argument(
+            "DataLoader brightness probability must be between 0 and 1"
+        );
+    }
+
+    if (!std::isfinite(brightness_min_factor) ||
+        !std::isfinite(brightness_max_factor) ||
+        brightness_min_factor <= 0.0 ||
+        brightness_max_factor <= 0.0 ||
+        brightness_min_factor > brightness_max_factor) {
+        throw std::invalid_argument(
+            "DataLoader brightness factors must be positive and ordered"
         );
     }
 
@@ -145,6 +169,16 @@ DataLoader::DataLoader(
                     "deviations must be positive and finite"
                 );
             }
+        }
+    }
+
+    if (brightness_probability > 0.0) {
+        std::vector<int> shape = dataset.sampleShape();
+        if (shape.size() != 2 && shape.size() != 3) {
+            throw std::invalid_argument(
+                "DataLoader brightness adjustment requires [height, width] "
+                "or [channels, height, width] samples"
+            );
         }
     }
 
@@ -290,6 +324,24 @@ Batch DataLoader::next() {
             crop_left = left_distribution(generator);
         }
 
+        double brightness_factor = 1.0;
+        if (brightness_probability == 1.0) {
+            brightness_factor = std::uniform_real_distribution<double>(
+                brightness_min_factor,
+                brightness_max_factor
+            )(generator);
+        } else if (brightness_probability > 0.0) {
+            std::bernoulli_distribution apply_brightness(
+                brightness_probability
+            );
+            if (apply_brightness(generator)) {
+                brightness_factor = std::uniform_real_distribution<double>(
+                    brightness_min_factor,
+                    brightness_max_factor
+                )(generator);
+            }
+        }
+
         if (format == BatchFormat::MLP) {
             for (int i = 0; i < output_sample_size; i++) {
                 int source_index = i;
@@ -317,7 +369,10 @@ Batch DataLoader::next() {
                     channel = i / (image_shape[1] * image_shape[2]);
                 }
                 images.flat(i * current_batch_size + j) =
-                    normalize(image.flat(source_index), channel);
+                    normalize(
+                        image.flat(source_index) * brightness_factor,
+                        channel
+                    );
             }
         } else {
             for (int c = 0; c < channels; c++) {
@@ -337,7 +392,10 @@ Batch DataLoader::next() {
                                     source_row,
                                     source_width
                                 });
-                        images({j, c, h, w}) = normalize(value, c);
+                        images({j, c, h, w}) = normalize(
+                            value * brightness_factor,
+                            c
+                        );
                     }
                 }
             }
