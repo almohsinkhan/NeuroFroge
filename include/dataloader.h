@@ -30,6 +30,8 @@ private:
     double horizontal_flip_probability;
     int crop_height;
     int crop_width;
+    std::vector<double> channel_means;
+    std::vector<double> channel_stddevs;
 
     std::vector<int> indices;
     std::mt19937 generator;
@@ -59,7 +61,9 @@ public:
         std::uint32_t seed,
         double horizontal_flip_probability = 0.0,
         int crop_height = 0,
-        int crop_width = 0
+        int crop_width = 0,
+        const std::vector<double>& channel_means = {},
+        const std::vector<double>& channel_stddevs = {}
     );
 
     bool hasNext() const;

@@ -46,7 +46,9 @@ DataLoader::DataLoader(
     std::uint32_t seed,
     double horizontal_flip_probability,
     int crop_height,
-    int crop_width
+    int crop_width,
+    const std::vector<double>& channel_means,
+    const std::vector<double>& channel_stddevs
 )
     : dataset(dataset),
       batch_size(batch_size),
@@ -57,7 +59,9 @@ DataLoader::DataLoader(
       generator(seed),
       horizontal_flip_probability(horizontal_flip_probability),
       crop_height(crop_height),
-      crop_width(crop_width)
+      crop_width(crop_width),
+      channel_means(channel_means),
+      channel_stddevs(channel_stddevs)
 {
     if (batch_size <= 0) {
         throw std::invalid_argument(
@@ -102,6 +106,45 @@ DataLoader::DataLoader(
             throw std::invalid_argument(
                 "DataLoader crop dimensions must fit image dimensions"
             );
+        }
+    }
+
+    if (channel_means.empty() != channel_stddevs.empty()) {
+        throw std::invalid_argument(
+            "DataLoader channel means and standard deviations must both "
+            "be provided"
+        );
+    }
+
+    if (!channel_means.empty()) {
+        std::vector<int> shape = dataset.sampleShape();
+        if (shape.size() != 2 && shape.size() != 3) {
+            throw std::invalid_argument(
+                "DataLoader channel normalization requires [height, width] "
+                "or [channels, height, width] samples"
+            );
+        }
+        int expected_channels = shape.size() == 2 ? 1 : shape[0];
+        if (channel_means.size() !=
+                static_cast<std::size_t>(expected_channels) ||
+            channel_stddevs.size() !=
+                static_cast<std::size_t>(expected_channels)) {
+            throw std::invalid_argument(
+                "DataLoader channel normalization parameters must match "
+                "the sample channel count"
+            );
+        }
+        for (std::size_t channel = 0;
+             channel < channel_means.size();
+             channel++) {
+            if (!std::isfinite(channel_means[channel]) ||
+                !std::isfinite(channel_stddevs[channel]) ||
+                channel_stddevs[channel] <= 0.0) {
+                throw std::invalid_argument(
+                    "DataLoader channel means must be finite and standard "
+                    "deviations must be positive and finite"
+                );
+            }
         }
     }
 
@@ -199,6 +242,13 @@ Batch DataLoader::next() {
 
     std::vector<int> labels;
 
+    auto normalize = [this](double value, int channel) {
+        if (channel_means.empty()) {
+            return value;
+        }
+        return (value - channel_means[channel]) /
+               channel_stddevs[channel];
+    };
 
     for (int j = 0; j < current_batch_size; j++) {
 
@@ -261,9 +311,13 @@ Batch DataLoader::next() {
                         : channel * height * width +
                           source_row * width + source_column;
                 }
-                images.flat(
-                    i * current_batch_size + j
-                ) = image.flat(source_index);
+                int channel = 0;
+                if (!channel_means.empty() &&
+                    image_shape.size() == 3) {
+                    channel = i / (image_shape[1] * image_shape[2]);
+                }
+                images.flat(i * current_batch_size + j) =
+                    normalize(image.flat(source_index), channel);
             }
         } else {
             for (int c = 0; c < channels; c++) {
@@ -275,7 +329,7 @@ Batch DataLoader::next() {
                                 ? output_width - 1 - w
                                 : w)
                             : (flip ? width - 1 - w : w);
-                        images({j, c, h, w}) =
+                        double value =
                             image.ndim() == 2
                                 ? image({source_row, source_width})
                                 : image({
@@ -283,6 +337,7 @@ Batch DataLoader::next() {
                                     source_row,
                                     source_width
                                 });
+                        images({j, c, h, w}) = normalize(value, c);
                     }
                 }
             }
