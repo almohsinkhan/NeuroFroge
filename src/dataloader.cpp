@@ -5,6 +5,18 @@
 #include <random>
 #include <stdexcept>
 
+DataLoader::DataLoader(
+    Dataset& dataset,
+    int batch_size
+)
+    : DataLoader(
+          dataset,
+          batch_size,
+          static_cast<int>(dataset.size())
+      )
+{
+}
+
 
 DataLoader::DataLoader(
     Dataset& dataset,
@@ -32,7 +44,9 @@ DataLoader::DataLoader(
     bool shuffle,
     BatchFormat format,
     std::uint32_t seed,
-    double horizontal_flip_probability
+    double horizontal_flip_probability,
+    int crop_height,
+    int crop_width
 )
     : dataset(dataset),
       batch_size(batch_size),
@@ -41,7 +55,9 @@ DataLoader::DataLoader(
       shuffle(shuffle),
       format(format),
       generator(seed),
-      horizontal_flip_probability(horizontal_flip_probability)
+      horizontal_flip_probability(horizontal_flip_probability),
+      crop_height(crop_height),
+      crop_width(crop_width)
 {
     if (batch_size <= 0) {
         throw std::invalid_argument(
@@ -62,6 +78,31 @@ DataLoader::DataLoader(
         throw std::invalid_argument(
             "DataLoader horizontal flip probability must be between 0 and 1"
         );
+    }
+
+    if ((crop_height == 0) != (crop_width == 0) ||
+        crop_height < 0 ||
+        crop_width < 0) {
+        throw std::invalid_argument(
+            "DataLoader crop dimensions must both be zero or positive"
+        );
+    }
+
+    if (crop_height > 0) {
+        std::vector<int> shape = dataset.sampleShape();
+        if (shape.size() != 2 && shape.size() != 3) {
+            throw std::invalid_argument(
+                "DataLoader cropping requires [height, width] or "
+                "[channels, height, width] samples"
+            );
+        }
+        int source_height = shape[shape.size() - 2];
+        int source_width = shape[shape.size() - 1];
+        if (crop_height > source_height || crop_width > source_width) {
+            throw std::invalid_argument(
+                "DataLoader crop dimensions must fit image dimensions"
+            );
+        }
     }
 
     initializeIndices();
@@ -118,8 +159,10 @@ Batch DataLoader::next() {
     int channels = 0;
     int height = 0;
     int width = 0;
+    bool cropping = crop_height > 0;
 
-    if (format == BatchFormat::CNN) {
+    if (format == BatchFormat::CNN || cropping ||
+        horizontal_flip_probability > 0.0) {
         if (image_shape.size() == 2) {
             channels = 1;
             height = image_shape[0];
@@ -130,19 +173,28 @@ Batch DataLoader::next() {
             width = image_shape[2];
         } else {
             throw std::invalid_argument(
-                "DataLoader CNN format requires [height, width] "
-                "or [channels, height, width] samples"
+                cropping || horizontal_flip_probability > 0.0
+                    ? "DataLoader image augmentation requires [height, width] "
+                      "or [channels, height, width] samples"
+                    : "DataLoader CNN format requires [height, width] "
+                      "or [channels, height, width] samples"
             );
         }
     }
 
+    int output_height = cropping ? crop_height : height;
+    int output_width = cropping ? crop_width : width;
+    int output_sample_size = cropping
+        ? channels * output_height * output_width
+        : sample_size;
+
     Tensor images = format == BatchFormat::MLP
-        ? Tensor({sample_size, current_batch_size})
+        ? Tensor({output_sample_size, current_batch_size})
         : Tensor({
             current_batch_size,
             channels,
-            height,
-            width
+            output_height,
+            output_width
         });
 
     std::vector<int> labels;
@@ -173,59 +225,63 @@ Batch DataLoader::next() {
             flip = distribution(generator);
         }
 
+        int crop_top = 0;
+        int crop_left = 0;
+        if (cropping) {
+            std::uniform_int_distribution<int> top_distribution(
+                0,
+                height - crop_height
+            );
+            std::uniform_int_distribution<int> left_distribution(
+                0,
+                width - crop_width
+            );
+            crop_top = top_distribution(generator);
+            crop_left = left_distribution(generator);
+        }
+
         if (format == BatchFormat::MLP) {
-            for (int i = 0; i < sample_size; i++) {
+            for (int i = 0; i < output_sample_size; i++) {
                 int source_index = i;
-                if (flip) {
-                    if (image_shape.size() == 2) {
-                        int width = image_shape[1];
-                        int row = i / width;
-                        int column = i % width;
-                        source_index =
-                            row * width + (width - 1 - column);
-                    } else if (image_shape.size() == 3) {
-                        int height = image_shape[1];
-                        int width = image_shape[2];
-                        int channel = i / (height * width);
-                        int offset = i % (height * width);
-                        int row = offset / width;
-                        int column = offset % width;
-                        source_index =
-                            channel * height * width +
-                            row * width +
-                            (width - 1 - column);
-                    } else {
-                        throw std::invalid_argument(
-                            "DataLoader horizontal flipping requires "
-                            "[height, width] or "
-                            "[channels, height, width] samples"
-                        );
-                    }
+                if (cropping || flip) {
+                    int channel = channels == 1
+                        ? 0
+                        : i / (output_height * output_width);
+                    int offset = i % (output_height * output_width);
+                    int row = offset / output_width;
+                    int column = offset % output_width;
+                    int source_row = cropping ? crop_top + row : row;
+                    int source_column = cropping
+                        ? crop_left + (flip
+                            ? output_width - 1 - column
+                            : column)
+                        : (flip ? width - 1 - column : column);
+                    source_index = image_shape.size() == 2
+                        ? source_row * width + source_column
+                        : channel * height * width +
+                          source_row * width + source_column;
                 }
                 images.flat(
                     i * current_batch_size + j
                 ) = image.flat(source_index);
             }
         } else {
-            if (flip && image_shape.size() != 2 &&
-                image_shape.size() != 3) {
-                throw std::invalid_argument(
-                    "DataLoader horizontal flipping requires "
-                    "[height, width] or "
-                    "[channels, height, width] samples"
-                );
-            }
             for (int c = 0; c < channels; c++) {
-                for (int h = 0; h < height; h++) {
-                    for (int w = 0; w < width; w++) {
-                        int source_width = width - 1 - w;
+                for (int h = 0; h < output_height; h++) {
+                    for (int w = 0; w < output_width; w++) {
+                        int source_row = cropping ? crop_top + h : h;
+                        int source_width = cropping
+                            ? crop_left + (flip
+                                ? output_width - 1 - w
+                                : w)
+                            : (flip ? width - 1 - w : w);
                         images({j, c, h, w}) =
                             image.ndim() == 2
-                                ? image({h, flip ? source_width : w})
+                                ? image({source_row, source_width})
                                 : image({
                                     c,
-                                    h,
-                                    flip ? source_width : w
+                                    source_row,
+                                    source_width
                                 });
                     }
                 }

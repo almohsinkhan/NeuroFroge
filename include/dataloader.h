@@ -28,6 +28,8 @@ private:
     bool shuffle;
     BatchFormat format;
     double horizontal_flip_probability;
+    int crop_height;
+    int crop_width;
 
     std::vector<int> indices;
     std::mt19937 generator;
@@ -35,6 +37,11 @@ private:
     void initializeIndices();
 
 public:
+    DataLoader(
+        Dataset& dataset,
+        int batch_size
+    );
+
     DataLoader(
         Dataset& dataset,
         int batch_size,
@@ -50,7 +57,9 @@ public:
         bool shuffle,
         BatchFormat format,
         std::uint32_t seed,
-        double horizontal_flip_probability = 0.0
+        double horizontal_flip_probability = 0.0,
+        int crop_height = 0,
+        int crop_width = 0
     );
 
     bool hasNext() const;

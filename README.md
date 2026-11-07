@@ -329,6 +329,28 @@ DataLoader augmented_loader(
 Flipping supports `[height, width]` and `[channels, height, width]` samples,
 preserves labels, and uses the loader seed for reproducible augmentation.
 
+Random cropping is also available through the same constructor by providing
+positive crop height and width after the flip probability:
+
+```cpp
+DataLoader cropped_loader(
+    dataset,
+    batch_size,
+    max_samples,
+    true,
+    BatchFormat::CNN,
+    12345,
+    0.5,
+    24,
+    24
+);
+```
+
+The crop must fit within every image. Crop coordinates are sampled
+independently for each sample, and the same seeded generator controls both
+cropping and flipping. Leaving both crop dimensions at `0` disables cropping
+and preserves the original sample dimensions.
+
 ## CNN example
 
 The complete CNN example is in
