@@ -351,6 +351,37 @@ independently for each sample, and the same seeded generator controls both
 cropping and flipping. Leaving both crop dimensions at `0` disables cropping
 and preserves the original sample dimensions.
 
+Brightness and contrast adjustments are disabled by default. They can be
+enabled after the crop parameters with a probability and positive factor
+range:
+
+```cpp
+DataLoader photometric_loader(
+    dataset,
+    batch_size,
+    max_samples,
+    true,
+    BatchFormat::CNN,
+    12345,
+    0.5,
+    0,
+    0,
+    {},
+    {},
+    0.5,
+    0.8,
+    1.2,
+    0.5,
+    0.8,
+    1.2
+);
+```
+
+Contrast is applied around each sample channel's mean, after brightness and
+before channel normalization. This definition works for arbitrary numeric
+pixel ranges and does not clip values. The same seeded generator controls all
+random augmentations, while labels and output shapes are preserved.
+
 ## CNN example
 
 The complete CNN example is in

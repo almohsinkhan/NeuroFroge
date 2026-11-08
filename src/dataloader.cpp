@@ -51,7 +51,10 @@ DataLoader::DataLoader(
     const std::vector<double>& channel_stddevs,
     double brightness_probability,
     double brightness_min_factor,
-    double brightness_max_factor
+    double brightness_max_factor,
+    double contrast_probability,
+    double contrast_min_factor,
+    double contrast_max_factor
 )
     : dataset(dataset),
       batch_size(batch_size),
@@ -67,11 +70,32 @@ DataLoader::DataLoader(
       channel_stddevs(channel_stddevs),
       brightness_probability(brightness_probability),
       brightness_min_factor(brightness_min_factor),
-      brightness_max_factor(brightness_max_factor)
+      brightness_max_factor(brightness_max_factor),
+      contrast_probability(contrast_probability),
+      contrast_min_factor(contrast_min_factor),
+      contrast_max_factor(contrast_max_factor)
 {
     if (batch_size <= 0) {
         throw std::invalid_argument(
             "DataLoader batch_size must be positive"
+        );
+    }
+
+    if (!std::isfinite(contrast_probability) ||
+        contrast_probability < 0.0 ||
+        contrast_probability > 1.0) {
+        throw std::invalid_argument(
+            "DataLoader contrast probability must be between 0 and 1"
+        );
+    }
+
+    if (!std::isfinite(contrast_min_factor) ||
+        !std::isfinite(contrast_max_factor) ||
+        contrast_min_factor <= 0.0 ||
+        contrast_max_factor <= 0.0 ||
+        contrast_min_factor > contrast_max_factor) {
+        throw std::invalid_argument(
+            "DataLoader contrast factors must be positive and ordered"
         );
     }
 
@@ -80,6 +104,16 @@ DataLoader::DataLoader(
         throw std::invalid_argument(
             "DataLoader max_samples must be within dataset size"
         );
+    }
+
+    if (contrast_probability > 0.0) {
+        std::vector<int> shape = dataset.sampleShape();
+        if (shape.size() != 2 && shape.size() != 3) {
+            throw std::invalid_argument(
+                "DataLoader contrast adjustment requires [height, width] "
+                "or [channels, height, width] samples"
+            );
+        }
     }
 
     if (!std::isfinite(horizontal_flip_probability) ||
@@ -239,7 +273,8 @@ Batch DataLoader::next() {
     bool cropping = crop_height > 0;
 
     if (format == BatchFormat::CNN || cropping ||
-        horizontal_flip_probability > 0.0) {
+        horizontal_flip_probability > 0.0 ||
+        contrast_probability > 0.0) {
         if (image_shape.size() == 2) {
             channels = 1;
             height = image_shape[0];
@@ -250,7 +285,8 @@ Batch DataLoader::next() {
             width = image_shape[2];
         } else {
             throw std::invalid_argument(
-                cropping || horizontal_flip_probability > 0.0
+                cropping || horizontal_flip_probability > 0.0 ||
+                contrast_probability > 0.0
                     ? "DataLoader image augmentation requires [height, width] "
                       "or [channels, height, width] samples"
                     : "DataLoader CNN format requires [height, width] "
@@ -342,6 +378,50 @@ Batch DataLoader::next() {
             }
         }
 
+        double contrast_factor = 1.0;
+        if (contrast_probability == 1.0) {
+            contrast_factor = std::uniform_real_distribution<double>(
+                contrast_min_factor,
+                contrast_max_factor
+            )(generator);
+        } else if (contrast_probability > 0.0) {
+            std::bernoulli_distribution apply_contrast(
+                contrast_probability
+            );
+            if (apply_contrast(generator)) {
+                contrast_factor = std::uniform_real_distribution<double>(
+                    contrast_min_factor,
+                    contrast_max_factor
+                )(generator);
+            }
+        }
+
+        std::vector<double> contrast_means(channels, 0.0);
+        if (contrast_factor != 1.0) {
+            for (int c = 0; c < channels; c++) {
+                int channel_size = height * width;
+                int channel_offset = image_shape.size() == 2
+                    ? 0
+                    : c * channel_size;
+                for (int index = 0; index < channel_size; index++) {
+                    contrast_means[c] +=
+                        image.flat(channel_offset + index);
+                }
+                contrast_means[c] /= channel_size;
+            }
+        }
+
+        auto transform = [&](double value, int channel) {
+            value *= brightness_factor;
+            if (contrast_factor != 1.0) {
+                double mean = contrast_means[channel] * brightness_factor;
+                value = mean +
+                        contrast_factor *
+                        (value - mean);
+            }
+            return value;
+        };
+
         if (format == BatchFormat::MLP) {
             for (int i = 0; i < output_sample_size; i++) {
                 int source_index = i;
@@ -370,7 +450,7 @@ Batch DataLoader::next() {
                 }
                 images.flat(i * current_batch_size + j) =
                     normalize(
-                        image.flat(source_index) * brightness_factor,
+                        transform(image.flat(source_index), channel),
                         channel
                     );
             }
@@ -392,10 +472,8 @@ Batch DataLoader::next() {
                                     source_row,
                                     source_width
                                 });
-                        images({j, c, h, w}) = normalize(
-                            value * brightness_factor,
-                            c
-                        );
+                        images({j, c, h, w}) =
+                            normalize(transform(value, c), c);
                     }
                 }
             }

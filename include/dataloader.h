@@ -35,6 +35,9 @@ private:
     double brightness_probability;
     double brightness_min_factor;
     double brightness_max_factor;
+    double contrast_probability;
+    double contrast_min_factor;
+    double contrast_max_factor;
 
     std::vector<int> indices;
     std::mt19937 generator;
@@ -69,7 +72,10 @@ public:
         const std::vector<double>& channel_stddevs = {},
         double brightness_probability = 0.0,
         double brightness_min_factor = 1.0,
-        double brightness_max_factor = 1.0
+        double brightness_max_factor = 1.0,
+        double contrast_probability = 0.0,
+        double contrast_min_factor = 1.0,
+        double contrast_max_factor = 1.0
     );
 
     bool hasNext() const;
