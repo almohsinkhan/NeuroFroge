@@ -43,6 +43,37 @@ DataLoader::DataLoader(
     int max_samples,
     bool shuffle,
     BatchFormat format,
+    const AugmentationConfig& augmentation
+)
+    : DataLoader(
+          dataset,
+          batch_size,
+          max_samples,
+          shuffle,
+          format,
+          augmentation.seed,
+          augmentation.horizontal_flip_probability,
+          augmentation.crop_height,
+          augmentation.crop_width,
+          augmentation.channel_means,
+          augmentation.channel_stddevs,
+          augmentation.brightness_probability,
+          augmentation.brightness_min_factor,
+          augmentation.brightness_max_factor,
+          augmentation.contrast_probability,
+          augmentation.contrast_min_factor,
+          augmentation.contrast_max_factor
+      )
+{
+}
+
+
+DataLoader::DataLoader(
+    Dataset& dataset,
+    int batch_size,
+    int max_samples,
+    bool shuffle,
+    BatchFormat format,
     std::uint32_t seed,
     double horizontal_flip_probability,
     int crop_height,

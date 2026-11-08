@@ -311,6 +311,37 @@ Calling `reset()` starts the next epoch and advances the same generator, so
 identically configured loaders produce the same sequence of shuffled epochs.
 Set `shuffle` to `false` to preserve dataset order.
 
+All augmentation settings can also be grouped in an
+`AugmentationConfig`. Its defaults keep flipping, cropping, brightness,
+contrast, and normalization disabled while retaining nondeterministic seeding:
+
+```cpp
+AugmentationConfig augmentation;
+augmentation.seed = 12345;
+augmentation.horizontal_flip_probability = 0.5;
+augmentation.crop_height = 24;
+augmentation.crop_width = 24;
+augmentation.brightness_probability = 0.5;
+augmentation.brightness_min_factor = 0.8;
+augmentation.brightness_max_factor = 1.2;
+augmentation.contrast_probability = 0.5;
+augmentation.contrast_min_factor = 0.8;
+augmentation.contrast_max_factor = 1.2;
+
+DataLoader loader(
+    dataset,
+    batch_size,
+    max_samples,
+    true,
+    BatchFormat::CNN,
+    augmentation
+);
+```
+
+Set `channel_means` and `channel_stddevs` on the config to enable
+per-channel normalization. The config constructor uses the same augmentation
+ordering and seeded generator as the positional constructor.
+
 Horizontal image flipping is disabled by default. The seeded constructor can
 enable it with a probability between `0.0` and `1.0`:
 

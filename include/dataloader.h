@@ -16,6 +16,21 @@ enum class BatchFormat {
     CNN
 };
 
+struct AugmentationConfig {
+    std::uint32_t seed = std::random_device{}();
+    double horizontal_flip_probability = 0.0;
+    int crop_height = 0;
+    int crop_width = 0;
+    std::vector<double> channel_means;
+    std::vector<double> channel_stddevs;
+    double brightness_probability = 0.0;
+    double brightness_min_factor = 1.0;
+    double brightness_max_factor = 1.0;
+    double contrast_probability = 0.0;
+    double contrast_min_factor = 1.0;
+    double contrast_max_factor = 1.0;
+};
+
 class DataLoader {
 
 private:
@@ -56,6 +71,15 @@ public:
         int max_samples,
         bool shuffle = true,
         BatchFormat format = BatchFormat::MLP
+    );
+
+    DataLoader(
+        Dataset& dataset,
+        int batch_size,
+        int max_samples,
+        bool shuffle,
+        BatchFormat format,
+        const AugmentationConfig& augmentation
     );
 
     DataLoader(
