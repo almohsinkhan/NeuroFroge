@@ -327,6 +327,20 @@ augmentation.brightness_max_factor = 1.2;
 augmentation.contrast_probability = 0.5;
 augmentation.contrast_min_factor = 0.8;
 augmentation.contrast_max_factor = 1.2;
+augmentation.rotation_probability = 0.5;
+augmentation.rotation_min_degrees = -15.0;
+augmentation.rotation_max_degrees = 15.0;
+augmentation.vertical_flip_probability = 0.5;
+augmentation.translation_min_horizontal = -2;
+augmentation.translation_max_horizontal = 2;
+augmentation.translation_min_vertical = -2;
+augmentation.translation_max_vertical = 2;
+augmentation.resize_height = 28;
+augmentation.resize_width = 28;
+augmentation.noise_mean = 0.0;
+augmentation.noise_stddev = 0.01;
+augmentation.blur_kernel_size = 3;
+augmentation.blur_sigma = 1.0;
 
 DataLoader loader(
     dataset,
@@ -341,6 +355,18 @@ DataLoader loader(
 Set `channel_means` and `channel_stddevs` on the config to enable
 per-channel normalization. The config constructor uses the same augmentation
 ordering and seeded generator as the positional constructor.
+
+The spatial pipeline is ordered as crop, resize, horizontal flip, vertical
+flip, rotation, and translation. Rotation and translation use nearest-neighbor
+sampling and fill coordinates outside the image with zero. Resize also uses
+nearest-neighbor sampling and preserves the channel count. Random rotation,
+translation, resize, and vertical flipping are disabled by default.
+
+Blur is applied after spatial transforms and uses a separable odd-sized
+Gaussian kernel with zero padding. Gaussian noise is then added without
+clipping, followed by brightness, contrast, and per-channel normalization.
+All image operations support `[height, width]` and `[channels, height, width]`
+samples and use the configured seeded generator.
 
 Horizontal image flipping is disabled by default. The seeded constructor can
 enable it with a probability between `0.0` and `1.0`:

@@ -4,6 +4,7 @@
 #include <cmath>
 #include <random>
 #include <stdexcept>
+#include <utility>
 
 DataLoader::DataLoader(
     Dataset& dataset,
@@ -62,7 +63,21 @@ DataLoader::DataLoader(
           augmentation.brightness_max_factor,
           augmentation.contrast_probability,
           augmentation.contrast_min_factor,
-          augmentation.contrast_max_factor
+          augmentation.contrast_max_factor,
+          augmentation.rotation_probability,
+          augmentation.rotation_min_degrees,
+          augmentation.rotation_max_degrees,
+          augmentation.vertical_flip_probability,
+          augmentation.translation_min_horizontal,
+          augmentation.translation_max_horizontal,
+          augmentation.translation_min_vertical,
+          augmentation.translation_max_vertical,
+          augmentation.resize_height,
+          augmentation.resize_width,
+          augmentation.noise_mean,
+          augmentation.noise_stddev,
+          augmentation.blur_kernel_size,
+          augmentation.blur_sigma
       )
 {
 }
@@ -85,7 +100,21 @@ DataLoader::DataLoader(
     double brightness_max_factor,
     double contrast_probability,
     double contrast_min_factor,
-    double contrast_max_factor
+    double contrast_max_factor,
+    double rotation_probability,
+    double rotation_min_degrees,
+    double rotation_max_degrees,
+    double vertical_flip_probability,
+    int translation_min_horizontal,
+    int translation_max_horizontal,
+    int translation_min_vertical,
+    int translation_max_vertical,
+    int resize_height,
+    int resize_width,
+    double noise_mean,
+    double noise_stddev,
+    int blur_kernel_size,
+    double blur_sigma
 )
     : dataset(dataset),
       batch_size(batch_size),
@@ -104,7 +133,21 @@ DataLoader::DataLoader(
       brightness_max_factor(brightness_max_factor),
       contrast_probability(contrast_probability),
       contrast_min_factor(contrast_min_factor),
-      contrast_max_factor(contrast_max_factor)
+      contrast_max_factor(contrast_max_factor),
+      rotation_probability(rotation_probability),
+      rotation_min_degrees(rotation_min_degrees),
+      rotation_max_degrees(rotation_max_degrees),
+      vertical_flip_probability(vertical_flip_probability),
+      translation_min_horizontal(translation_min_horizontal),
+      translation_max_horizontal(translation_max_horizontal),
+      translation_min_vertical(translation_min_vertical),
+      translation_max_vertical(translation_max_vertical),
+      resize_height(resize_height),
+      resize_width(resize_width),
+      noise_mean(noise_mean),
+      noise_stddev(noise_stddev),
+      blur_kernel_size(blur_kernel_size),
+      blur_sigma(blur_sigma)
 {
     if (batch_size <= 0) {
         throw std::invalid_argument(
@@ -127,6 +170,67 @@ DataLoader::DataLoader(
         contrast_min_factor > contrast_max_factor) {
         throw std::invalid_argument(
             "DataLoader contrast factors must be positive and ordered"
+        );
+    }
+
+    if (!std::isfinite(rotation_probability) ||
+        rotation_probability < 0.0 ||
+        rotation_probability > 1.0) {
+        throw std::invalid_argument(
+            "DataLoader rotation probability must be between 0 and 1"
+        );
+    }
+
+    if (!std::isfinite(rotation_min_degrees) ||
+        !std::isfinite(rotation_max_degrees) ||
+        rotation_min_degrees > rotation_max_degrees) {
+        throw std::invalid_argument(
+            "DataLoader rotation angles must be finite and ordered"
+        );
+    }
+
+    if (!std::isfinite(vertical_flip_probability) ||
+        vertical_flip_probability < 0.0 ||
+        vertical_flip_probability > 1.0) {
+        throw std::invalid_argument(
+            "DataLoader vertical flip probability must be between 0 and 1"
+        );
+    }
+
+    if (translation_min_horizontal > translation_max_horizontal ||
+        translation_min_vertical > translation_max_vertical) {
+        throw std::invalid_argument(
+            "DataLoader translation ranges must be ordered"
+        );
+    }
+
+    if ((resize_height == 0) != (resize_width == 0) ||
+        resize_height < 0 ||
+        resize_width < 0) {
+        throw std::invalid_argument(
+            "DataLoader resize dimensions must both be zero or positive"
+        );
+    }
+
+    if (!std::isfinite(noise_mean) ||
+        !std::isfinite(noise_stddev) ||
+        noise_stddev < 0.0) {
+        throw std::invalid_argument(
+            "DataLoader noise parameters must be finite and non-negative"
+        );
+    }
+
+    if (blur_kernel_size != 0 &&
+        (blur_kernel_size < 1 || blur_kernel_size % 2 == 0)) {
+        throw std::invalid_argument(
+            "DataLoader blur kernel size must be zero or a positive odd value"
+        );
+    }
+    if (!std::isfinite(blur_sigma) ||
+        (blur_kernel_size > 0 && blur_sigma <= 0.0) ||
+        (blur_kernel_size == 0 && blur_sigma < 0.0)) {
+        throw std::invalid_argument(
+            "DataLoader blur sigma must be positive when blur is enabled"
         );
     }
 
@@ -237,12 +341,31 @@ DataLoader::DataLoader(
         }
     }
 
-    if (brightness_probability > 0.0) {
+    if (brightness_probability > 0.0 ||
+        vertical_flip_probability > 0.0 ||
+        translation_min_horizontal != 0 ||
+        translation_max_horizontal != 0 ||
+        translation_min_vertical != 0 ||
+        translation_max_vertical != 0 ||
+        resize_height > 0 ||
+        blur_kernel_size > 0 ||
+        noise_mean != 0.0 ||
+        noise_stddev > 0.0) {
         std::vector<int> shape = dataset.sampleShape();
         if (shape.size() != 2 && shape.size() != 3) {
             throw std::invalid_argument(
-                "DataLoader brightness adjustment requires [height, width] "
+                "DataLoader image augmentation requires [height, width] "
                 "or [channels, height, width] samples"
+            );
+        }
+    }
+
+    if (rotation_probability > 0.0) {
+        std::vector<int> shape = dataset.sampleShape();
+        if (shape.size() != 2 && shape.size() != 3) {
+            throw std::invalid_argument(
+                "DataLoader rotation requires [height, width] or "
+                "[channels, height, width] samples"
             );
         }
     }
@@ -305,7 +428,17 @@ Batch DataLoader::next() {
 
     if (format == BatchFormat::CNN || cropping ||
         horizontal_flip_probability > 0.0 ||
-        contrast_probability > 0.0) {
+        contrast_probability > 0.0 ||
+        rotation_probability > 0.0 ||
+        vertical_flip_probability > 0.0 ||
+        translation_min_horizontal != 0 ||
+        translation_max_horizontal != 0 ||
+        translation_min_vertical != 0 ||
+        translation_max_vertical != 0 ||
+        resize_height > 0 ||
+        noise_mean != 0.0 ||
+        noise_stddev > 0.0 ||
+        blur_kernel_size > 0) {
         if (image_shape.size() == 2) {
             channels = 1;
             height = image_shape[0];
@@ -317,7 +450,8 @@ Batch DataLoader::next() {
         } else {
             throw std::invalid_argument(
                 cropping || horizontal_flip_probability > 0.0 ||
-                contrast_probability > 0.0
+                contrast_probability > 0.0 ||
+                rotation_probability > 0.0
                     ? "DataLoader image augmentation requires [height, width] "
                       "or [channels, height, width] samples"
                     : "DataLoader CNN format requires [height, width] "
@@ -326,9 +460,11 @@ Batch DataLoader::next() {
         }
     }
 
-    int output_height = cropping ? crop_height : height;
-    int output_width = cropping ? crop_width : width;
-    int output_sample_size = cropping
+    int base_height = cropping ? crop_height : height;
+    int base_width = cropping ? crop_width : width;
+    int output_height = resize_height > 0 ? resize_height : base_height;
+    int output_width = resize_width > 0 ? resize_width : base_width;
+    int output_sample_size = channels > 0
         ? channels * output_height * output_width
         : sample_size;
 
@@ -427,6 +563,95 @@ Batch DataLoader::next() {
             }
         }
 
+        double rotation_degrees = 0.0;
+        if (rotation_probability == 1.0) {
+            rotation_degrees = std::uniform_real_distribution<double>(
+                rotation_min_degrees,
+                rotation_max_degrees
+            )(generator);
+        } else if (rotation_probability > 0.0) {
+            std::bernoulli_distribution apply_rotation(
+                rotation_probability
+            );
+            if (apply_rotation(generator)) {
+                rotation_degrees = std::uniform_real_distribution<double>(
+                    rotation_min_degrees,
+                    rotation_max_degrees
+                )(generator);
+            }
+        }
+
+        bool vertical_flip = false;
+        if (vertical_flip_probability == 1.0) {
+            vertical_flip = true;
+        } else if (vertical_flip_probability > 0.0) {
+            vertical_flip = std::bernoulli_distribution(
+                vertical_flip_probability
+            )(generator);
+        }
+
+        int translation_horizontal = 0;
+        int translation_vertical = 0;
+        if (translation_min_horizontal != translation_max_horizontal) {
+            translation_horizontal = std::uniform_int_distribution<int>(
+                translation_min_horizontal,
+                translation_max_horizontal
+            )(generator);
+        } else {
+            translation_horizontal = translation_min_horizontal;
+        }
+        if (translation_min_vertical != translation_max_vertical) {
+            translation_vertical = std::uniform_int_distribution<int>(
+                translation_min_vertical,
+                translation_max_vertical
+            )(generator);
+        } else {
+            translation_vertical = translation_min_vertical;
+        }
+
+        double rotation_radians =
+            rotation_degrees * std::acos(-1.0) / 180.0;
+        double rotation_cosine = std::cos(rotation_radians);
+        double rotation_sine = std::sin(rotation_radians);
+        double spatial_center_row = (base_height - 1) / 2.0;
+        double spatial_center_column = (base_width - 1) / 2.0;
+
+        auto sourceCoordinates = [&](int row, int column) {
+            int scaled_row = resize_height > 0
+                ? static_cast<int>(
+                    (row + 0.5) * base_height / output_height
+                )
+                : row;
+            int scaled_column = resize_width > 0
+                ? static_cast<int>(
+                    (column + 0.5) * base_width / output_width
+                )
+                : column;
+            int translated_row = scaled_row - translation_vertical;
+            int translated_column =
+                scaled_column - translation_horizontal;
+            double centered_row = translated_row - spatial_center_row;
+            double centered_column =
+                translated_column - spatial_center_column;
+            int rotated_row = static_cast<int>(std::lround(
+                spatial_center_row +
+                rotation_cosine * centered_row +
+                rotation_sine * centered_column
+            ));
+            int rotated_column = static_cast<int>(std::lround(
+                spatial_center_column +
+                -rotation_sine * centered_row +
+                rotation_cosine * centered_column
+            ));
+            if (vertical_flip) {
+                rotated_row = base_height - 1 - rotated_row;
+            }
+            if (flip) {
+                rotated_column = base_width - 1 - rotated_column;
+            }
+            return std::pair<int, int>(rotated_row, rotated_column);
+        };
+
         std::vector<double> contrast_means(channels, 0.0);
         if (contrast_factor != 1.0) {
             for (int c = 0; c < channels; c++) {
@@ -453,58 +678,120 @@ Batch DataLoader::next() {
             return value;
         };
 
-        if (format == BatchFormat::MLP) {
-            for (int i = 0; i < output_sample_size; i++) {
-                int source_index = i;
-                if (cropping || flip) {
-                    int channel = channels == 1
-                        ? 0
-                        : i / (output_height * output_width);
-                    int offset = i % (output_height * output_width);
-                    int row = offset / output_width;
-                    int column = offset % output_width;
-                    int source_row = cropping ? crop_top + row : row;
-                    int source_column = cropping
-                        ? crop_left + (flip
-                            ? output_width - 1 - column
-                            : column)
-                        : (flip ? width - 1 - column : column);
-                    source_index = image_shape.size() == 2
-                        ? source_row * width + source_column
-                        : channel * height * width +
-                          source_row * width + source_column;
-                }
-                int channel = 0;
-                if (!channel_means.empty() &&
-                    image_shape.size() == 3) {
-                    channel = i / (image_shape[1] * image_shape[2]);
-                }
+        std::vector<double> spatial_values(
+            channels * output_height * output_width,
+            0.0
+        );
+        if (channels == 0) {
+            for (int i = 0; i < sample_size; i++) {
                 images.flat(i * current_batch_size + j) =
-                    normalize(
-                        transform(image.flat(source_index), channel),
-                        channel
-                    );
+                    normalize(transform(image.flat(i), 0), 0);
             }
-        } else {
+            labels.push_back(dataset.getLabel(dataset_index));
+            continue;
+        }
+        for (int c = 0; c < channels; c++) {
+            for (int h = 0; h < output_height; h++) {
+                for (int w = 0; w < output_width; w++) {
+                    auto source = sourceCoordinates(h, w);
+                    double value = 0.0;
+                    if (source.first >= 0 &&
+                        source.first < base_height &&
+                        source.second >= 0 &&
+                        source.second < base_width) {
+                        int source_row = cropping
+                            ? crop_top + source.first
+                            : source.first;
+                        int source_column = cropping
+                            ? crop_left + source.second
+                            : source.second;
+                        value = image.ndim() == 2
+                            ? image({source_row, source_column})
+                            : image({c, source_row, source_column});
+                    }
+                    spatial_values[
+                        (c * output_height + h) * output_width + w
+                    ] = value;
+                }
+            }
+        }
+
+        if (blur_kernel_size > 0) {
+            std::vector<double> kernel(blur_kernel_size);
+            int radius = blur_kernel_size / 2;
+            double kernel_sum = 0.0;
+            for (int i = 0; i < blur_kernel_size; i++) {
+                double distance = i - radius;
+                kernel[i] = std::exp(
+                    -(distance * distance) /
+                    (2.0 * blur_sigma * blur_sigma)
+                );
+                kernel_sum += kernel[i];
+            }
+            for (double& value : kernel) {
+                value /= kernel_sum;
+            }
+            std::vector<double> horizontal(spatial_values.size(), 0.0);
             for (int c = 0; c < channels; c++) {
                 for (int h = 0; h < output_height; h++) {
                     for (int w = 0; w < output_width; w++) {
-                        int source_row = cropping ? crop_top + h : h;
-                        int source_width = cropping
-                            ? crop_left + (flip
-                                ? output_width - 1 - w
-                                : w)
-                            : (flip ? width - 1 - w : w);
-                        double value =
-                            image.ndim() == 2
-                                ? image({source_row, source_width})
-                                : image({
-                                    c,
-                                    source_row,
-                                    source_width
-                                });
-                        images({j, c, h, w}) =
-                            normalize(transform(value, c), c);
+                        for (int k = 0; k < blur_kernel_size; k++) {
+                            int source_w = w + k - radius;
+                            if (source_w >= 0 && source_w < output_width) {
+                                horizontal[
+                                    (c * output_height + h) *
+                                    output_width + w
+                                ] += kernel[k] * spatial_values[
+                                    (c * output_height + h) *
+                                    output_width + source_w
+                                ];
+                            }
+                        }
+                    }
+                }
+            }
+            std::vector<double> blurred(spatial_values.size(), 0.0);
+            for (int c = 0; c < channels; c++) {
+                for (int h = 0; h < output_height; h++) {
+                    for (int w = 0; w < output_width; w++) {
+                        for (int k = 0; k < blur_kernel_size; k++) {
+                            int source_h = h + k - radius;
+                            if (source_h >= 0 && source_h < output_height) {
+                                blurred[
+                                    (c * output_height + h) *
+                                    output_width + w
+                                ] += kernel[k] * horizontal[
+                                    (c * output_height + source_h) *
+                                    output_width + w
+                                ];
+                            }
+                        }
+                    }
+                }
+            }
+            spatial_values.swap(blurred);
+        }
+
+        if (noise_stddev > 0.0 || noise_mean != 0.0) {
+            std::normal_distribution<double> noise(noise_mean, noise_stddev);
+            for (double& value : spatial_values) {
+                value += noise(generator);
+            }
+        }
+
+        for (int c = 0; c < channels; c++) {
+            for (int h = 0; h < output_height; h++) {
+                for (int w = 0; w < output_width; w++) {
+                    double value = spatial_values[
+                        (c * output_height + h) * output_width + w
+                    ];
+                    value = normalize(transform(value, c), c);
+                    if (format == BatchFormat::MLP) {
+                        int index = (c * output_height + h) *
+                            output_width + w;
+                        images.flat(index * current_batch_size + j) = value;
+                    } else {
+                        images({j, c, h, w}) = value;
                     }
                 }
             }

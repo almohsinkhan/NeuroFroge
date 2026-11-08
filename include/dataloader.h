@@ -29,6 +29,20 @@ struct AugmentationConfig {
     double contrast_probability = 0.0;
     double contrast_min_factor = 1.0;
     double contrast_max_factor = 1.0;
+    double rotation_probability = 0.0;
+    double rotation_min_degrees = 0.0;
+    double rotation_max_degrees = 0.0;
+    double vertical_flip_probability = 0.0;
+    int translation_min_horizontal = 0;
+    int translation_max_horizontal = 0;
+    int translation_min_vertical = 0;
+    int translation_max_vertical = 0;
+    int resize_height = 0;
+    int resize_width = 0;
+    double noise_mean = 0.0;
+    double noise_stddev = 0.0;
+    int blur_kernel_size = 0;
+    double blur_sigma = 0.0;
 };
 
 class DataLoader {
@@ -53,6 +67,20 @@ private:
     double contrast_probability;
     double contrast_min_factor;
     double contrast_max_factor;
+    double rotation_probability;
+    double rotation_min_degrees;
+    double rotation_max_degrees;
+    double vertical_flip_probability;
+    int translation_min_horizontal;
+    int translation_max_horizontal;
+    int translation_min_vertical;
+    int translation_max_vertical;
+    int resize_height;
+    int resize_width;
+    double noise_mean;
+    double noise_stddev;
+    int blur_kernel_size;
+    double blur_sigma;
 
     std::vector<int> indices;
     std::mt19937 generator;
@@ -99,7 +127,21 @@ public:
         double brightness_max_factor = 1.0,
         double contrast_probability = 0.0,
         double contrast_min_factor = 1.0,
-        double contrast_max_factor = 1.0
+        double contrast_max_factor = 1.0,
+        double rotation_probability = 0.0,
+        double rotation_min_degrees = 0.0,
+        double rotation_max_degrees = 0.0,
+        double vertical_flip_probability = 0.0,
+        int translation_min_horizontal = 0,
+        int translation_max_horizontal = 0,
+        int translation_min_vertical = 0,
+        int translation_max_vertical = 0,
+        int resize_height = 0,
+        int resize_width = 0,
+        double noise_mean = 0.0,
+        double noise_stddev = 0.0,
+        int blur_kernel_size = 0,
+        double blur_sigma = 0.0
     );
 
     bool hasNext() const;
