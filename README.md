@@ -278,6 +278,34 @@ converted to normalized floating-point tensors when samples are requested.
 The current reader expects decompressed IDX files. The repository does not
 download or decompress datasets automatically.
 
+### CIFAR-10 CSV preparation
+
+The repository includes a Python utility that downloads the CIFAR-10 binary
+archive when needed, validates and safely extracts it, and writes channel-first
+RGB CSV files compatible with the configurable CSV `Dataset` constructor:
+
+```bash
+python3 scripts/prepare_cifar10.py --output-dir data/cifar10
+```
+
+The generated files are `cifar10_train_images.csv`,
+`cifar10_train_labels.csv`, `cifar10_test_images.csv`, and
+`cifar10_test_labels.csv`. Load them as `{3, 32, 32}` samples:
+
+```cpp
+Dataset train(
+    "data/cifar10/cifar10_train_images.csv",
+    "data/cifar10/cifar10_train_labels.csv",
+    {3, 32, 32}
+);
+```
+
+To validate the converter without downloading CIFAR-10, run:
+
+```bash
+python3 scripts/test_prepare_cifar10.py
+```
+
 `DataLoader` supports:
 
 ```text
